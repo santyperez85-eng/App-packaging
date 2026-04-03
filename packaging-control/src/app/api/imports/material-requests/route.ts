@@ -1,0 +1,16 @@
+import { NextResponse } from "next/server";
+
+import { handleRouteError } from "@/app/api/_utils";
+import { readRowsFromRequest } from "@/server/etl/excel";
+import { importService } from "@/server/etl/import-service";
+
+export async function POST(request: Request) {
+  try {
+    const payload = await readRowsFromRequest(request);
+    const data = await importService.importMaterialRequestRows(payload);
+
+    return NextResponse.json(data, { status: 201 });
+  } catch (error) {
+    return handleRouteError(error);
+  }
+}

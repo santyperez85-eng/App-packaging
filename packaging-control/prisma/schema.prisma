@@ -1,0 +1,680 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BusinessUnit {
+  PHARMA
+  COSMETIC
+}
+
+enum UserRole {
+  ADMIN
+  PM
+  DESIGN
+  REGULATORY
+  QUALITY
+  OPERATIONS
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  BLOCKED
+  READY_TO_CLOSE
+  CLOSED
+}
+
+enum ItemType {
+  BOX
+  LABEL
+  BOTTLE
+  LEAFLET
+  INSERT
+  TUBE
+  CAP
+  SACHET
+  OTHER
+}
+
+enum ItemCriticality {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ProjectItemStatus {
+  PENDING
+  IN_PROGRESS
+  WAITING_CODE
+  WAITING_DOCS
+  BLOCKED
+  READY
+}
+
+enum MaterialType {
+  PRIMARY_PACKAGING
+  SECONDARY_PACKAGING
+  LEAFLET
+  LABEL
+  COMPONENT
+  OTHER
+}
+
+enum MaterialRequestStatus {
+  REQUESTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MoondeskTaskType {
+  DESIGN_REQUEST
+  REVIEW_REQUEST
+  ARTWORK
+  DRAWING
+  SPECIFICATION
+}
+
+enum MoondeskTaskStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+  BLOCKED
+  CANCELLED
+}
+
+enum ReviewDecision {
+  PENDING
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
+}
+
+enum DocumentType {
+  ARTWORK
+  DRAWING
+  SPECIFICATION
+  TECHNICAL_SHEET
+  APPROVED_PDF
+  OTHER
+}
+
+enum CheckType {
+  MATERIAL_CODE
+  DRAWING
+  SPECIFICATION
+  TECHNICAL_SHEET
+  APPROVED_DOCUMENT
+  REVIEW_TASK
+}
+
+enum CheckStatus {
+  PENDING
+  PASSED
+  FAILED
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum IssueSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum ImportProcessStatus {
+  PENDING
+  PROCESSED
+  ERROR
+}
+
+enum VersioningRecommendation {
+  NO_SIGNAL
+  VERSION_JUMP
+  NEW_ROOT_CODE_CANDIDATE
+}
+
+model User {
+  id                      String           @id @default(cuid())
+  fullName                String
+  email                   String           @unique
+  role                    UserRole         @default(PM)
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+  ownedProjects           Project[]        @relation("ProjectOwner")
+  createdMaterialRequests MaterialRequest[] @relation("MaterialRequestRequester")
+  assignedChecks          TechnicalCheck[] @relation("TechnicalCheckUser")
+  approvals               Approval[]       @relation("ApprovalUser")
+  issuesReported          Issue[]          @relation("IssueReporter")
+
+  @@map("users")
+}
+
+model Product {
+  id            String       @id @default(cuid())
+  referenceCode String?      @unique
+  name          String
+  businessUnit  BusinessUnit
+  category      String?
+  presentation  String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  projects      Project[]
+
+  @@map("products")
+}
+
+model Project {
+  id               String            @id @default(cuid())
+  productId        String?
+  ownerId          String?
+  code             String            @unique
+  name             String
+  description      String?
+  businessUnit     BusinessUnit
+  status           ProjectStatus     @default(PLANNING)
+  macroStatus      String?
+  healthScore      Int               @default(0)
+  sourcePmKey      String?           @unique
+  startDate        DateTime?
+  targetLaunchDate DateTime?
+  closedAt         DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  product          Product?          @relation(fields: [productId], references: [id])
+  owner            User?             @relation("ProjectOwner", fields: [ownerId], references: [id])
+  projectItems     ProjectItem[]
+  bomItems         BomItem[]
+  materialRequests MaterialRequest[]
+  alerts           Alert[]
+
+  @@index([productId])
+  @@index([status])
+  @@map("projects")
+}
+
+model ProjectItem {
+  id                       String                   @id @default(cuid())
+  projectId                String
+  bomItemId                String?
+  materialRequestId        String?
+  materialMasterId         String?
+  itemKey                  String
+  name                     String
+  description              String?
+  itemType                 ItemType                 @default(OTHER)
+  criticality              ItemCriticality          @default(HIGH)
+  status                   ProjectItemStatus        @default(PENDING)
+  readinessScore           Int                      @default(0)
+  isPackaging              Boolean                  @default(true)
+  requiresMaterialCode     Boolean                  @default(true)
+  requiresApprovedDocument Boolean                  @default(true)
+  requiresTechnicalDocs    Boolean                  @default(true)
+  expectedMaterialCode     String?
+  versioningRecommendation VersioningRecommendation @default(NO_SIGNAL)
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  project                  Project                  @relation(fields: [projectId], references: [id])
+  bomItem                  BomItem?                 @relation(fields: [bomItemId], references: [id])
+  materialRequest          MaterialRequest?         @relation(fields: [materialRequestId], references: [id])
+  materialMaster           MaterialsMaster?         @relation(fields: [materialMasterId], references: [id])
+  moondeskTasks            MoondeskTask[]
+  technicalChecks          TechnicalCheck[]
+  alerts                   Alert[]
+  approvals                Approval[]
+  issues                   Issue[]
+
+  @@unique([projectId, itemKey])
+  @@index([projectId, status])
+  @@map("project_items")
+}
+
+model BomItem {
+  id                   String        @id @default(cuid())
+  projectId            String
+  componentKey         String
+  componentName        String
+  componentType        ItemType      @default(OTHER)
+  quantity             Float?
+  unit                 String?
+  isPackaging          Boolean       @default(true)
+  isCritical           Boolean       @default(true)
+  expectedMaterialCode String?
+  notes                String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  project              Project       @relation(fields: [projectId], references: [id])
+  projectItems         ProjectItem[]
+
+  @@unique([projectId, componentKey])
+  @@index([projectId])
+  @@map("bom_items")
+}
+
+model MaterialRequest {
+  id                 String                @id @default(cuid())
+  projectId          String
+  requestedById      String?
+  requestCode        String?
+  requestDate        DateTime?
+  requestedByName    String?
+  materialType       MaterialType          @default(OTHER)
+  requestedDescription String
+  requestStatus      MaterialRequestStatus @default(REQUESTED)
+  linkedMaterialCode String?
+  linkedMaterialId   String?
+  sourceExternalId   String?               @unique
+  notes              String?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  project            Project               @relation(fields: [projectId], references: [id])
+  requester          User?                 @relation("MaterialRequestRequester", fields: [requestedById], references: [id])
+  linkedMaterial     MaterialsMaster?      @relation(fields: [linkedMaterialId], references: [id])
+  projectItems       ProjectItem[]
+
+  @@index([projectId, requestStatus])
+  @@map("material_requests")
+}
+
+model MaterialsMaster {
+  id                  String                  @id @default(cuid())
+  materialCode        String                  @unique
+  rootCode            String?
+  versionLabel        String?
+  materialType        MaterialType            @default(OTHER)
+  description         String
+  format              String?
+  measures            String?
+  supplier            String?
+  drawingCode         String?
+  specificationCode   String?
+  technicalSheetCode  String?
+  observations        String?
+  changeHistoryText   String?
+  activeFlag          Boolean                 @default(true)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  projectItems        ProjectItem[]
+  linkedRequests      MaterialRequest[]
+  sapMaterial         SapMaterial?
+  changeHistoryEntries MaterialChangeHistory[]
+  pos652Evaluations   Pos652RuleEvaluation[]
+
+  @@index([materialType])
+  @@map("materials_master")
+}
+
+model MoondeskTask {
+  id                       String            @id @default(cuid())
+  externalTaskId           String?           @unique
+  projectItemId            String
+  taskType                 MoondeskTaskType
+  taskStatus               MoondeskTaskStatus @default(TODO)
+  title                    String
+  dueDate                  DateTime?
+  assignedDesigner         String?
+  versionsCount            Int               @default(0)
+  latestVersionLabel       String?
+  reviewDecision           ReviewDecision?
+  approvedVersionAvailable Boolean           @default(false)
+  comments                 Json?
+  sourceUpdatedAt          DateTime?
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
+  projectItem              ProjectItem       @relation(fields: [projectItemId], references: [id])
+  versions                 MoondeskVersion[]
+  reviews                  MoondeskReview[]
+  documents                MoondeskDocument[]
+
+  @@index([projectItemId, taskType])
+  @@map("moondesk_tasks")
+}
+
+model TechnicalCheck {
+  id          String      @id @default(cuid())
+  projectItemId String
+  checkedById String?
+  checkType   CheckType
+  status      CheckStatus @default(PENDING)
+  isBlocking  Boolean     @default(true)
+  notes       String?
+  checkedAt   DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  projectItem ProjectItem @relation(fields: [projectItemId], references: [id])
+  checkedBy   User?       @relation("TechnicalCheckUser", fields: [checkedById], references: [id])
+
+  @@index([projectItemId, status])
+  @@unique([projectItemId, checkType])
+  @@map("technical_checks")
+}
+
+model Alert {
+  id           String        @id @default(cuid())
+  projectId    String?
+  projectItemId String?
+  type         String
+  title        String
+  message      String
+  severity     AlertSeverity @default(WARNING)
+  status       AlertStatus   @default(OPEN)
+  ruleCode     String?
+  dueDate      DateTime?
+  metadata     Json?
+  resolvedAt   DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  project      Project?      @relation(fields: [projectId], references: [id])
+  projectItem  ProjectItem?  @relation(fields: [projectItemId], references: [id])
+
+  @@index([projectId])
+  @@index([projectItemId])
+  @@index([status, severity])
+  @@unique([projectItemId, ruleCode])
+  @@map("alerts")
+}
+
+model SapMaterial {
+  id             String         @id @default(cuid())
+  materialCode   String         @unique
+  materialMasterId String?      @unique
+  description    String?
+  activeFlag     Boolean        @default(true)
+  supplier       String?
+  purchaseStatus String?
+  sourceUpdatedAt DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  materialMaster MaterialsMaster? @relation(fields: [materialMasterId], references: [id])
+  rawImports     ImportSapRaw[]
+
+  @@map("sap_materials")
+}
+
+model MoondeskVersion {
+  id               String       @id @default(cuid())
+  moondeskTaskId   String
+  versionLabel     String
+  isLatest         Boolean      @default(false)
+  approved         Boolean      @default(false)
+  createdAtSource  DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  moondeskTask     MoondeskTask @relation(fields: [moondeskTaskId], references: [id])
+
+  @@index([moondeskTaskId])
+  @@map("moondesk_versions")
+}
+
+model MoondeskReview {
+  id             String         @id @default(cuid())
+  moondeskTaskId String
+  reviewer       String?
+  decision       ReviewDecision @default(PENDING)
+  dueDate        DateTime?
+  reviewedAt     DateTime?
+  comments       String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  moondeskTask   MoondeskTask   @relation(fields: [moondeskTaskId], references: [id])
+
+  @@index([moondeskTaskId])
+  @@map("moondesk_reviews")
+}
+
+model MoondeskDocument {
+  id                 String       @id @default(cuid())
+  moondeskTaskId     String
+  documentType       DocumentType
+  name               String
+  url                String?
+  externalDocumentId String?      @unique
+  approved           Boolean      @default(false)
+  versionLabel       String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  moondeskTask       MoondeskTask @relation(fields: [moondeskTaskId], references: [id])
+
+  @@index([moondeskTaskId])
+  @@map("moondesk_documents")
+}
+
+model Approval {
+  id           String         @id @default(cuid())
+  projectItemId String
+  approverId   String?
+  approverName String?
+  approvalType String
+  status       ApprovalStatus @default(PENDING)
+  approvedAt   DateTime?
+  notes        String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  projectItem  ProjectItem    @relation(fields: [projectItemId], references: [id])
+  approver     User?          @relation("ApprovalUser", fields: [approverId], references: [id])
+
+  @@index([projectItemId, status])
+  @@map("approvals")
+}
+
+model Issue {
+  id           String        @id @default(cuid())
+  projectItemId String
+  reporterId   String?
+  title        String
+  description  String?
+  severity     IssueSeverity @default(MEDIUM)
+  status       IssueStatus   @default(OPEN)
+  blockedUntil DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  projectItem  ProjectItem   @relation(fields: [projectItemId], references: [id])
+  reporter     User?         @relation("IssueReporter", fields: [reporterId], references: [id])
+
+  @@index([projectItemId, status])
+  @@map("issues")
+}
+
+model Pos652RuleEvaluation {
+  id                  String          @id @default(cuid())
+  materialMasterId    String
+  ruleVersion         String
+  evaluationResult    String
+  requiresNewRootCode Boolean         @default(false)
+  detectedChangeType  String?
+  rationale           String?
+  evaluatedAt         DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  materialMaster      MaterialsMaster @relation(fields: [materialMasterId], references: [id])
+
+  @@index([materialMasterId])
+  @@map("pos652_rule_evaluations")
+}
+
+model MaterialChangeHistory {
+  id               String          @id @default(cuid())
+  materialMasterId String
+  changedAt        DateTime?
+  previousVersion  String?
+  newVersion       String?
+  changeType       String?
+  changeSummary    String?
+  sourceDocument   String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  materialMaster   MaterialsMaster @relation(fields: [materialMasterId], references: [id])
+
+  @@index([materialMasterId])
+  @@map("material_change_history")
+}
+
+model ImportPmRow {
+  id               String              @id @default(cuid())
+  batchId          String
+  sourceFileName   String?
+  sheetName        String?
+  rowNumber        Int
+  processingStatus ImportProcessStatus @default(PENDING)
+  errorMessage     String?
+  projectCode      String?
+  projectName      String?
+  productReference String?
+  productName      String?
+  presentation     String?
+  businessUnit     BusinessUnit?
+  macroStatus      String?
+  startDate        DateTime?
+  targetLaunchDate DateTime?
+  rawData          Json
+  processedAt      DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([batchId, processingStatus])
+  @@unique([batchId, sheetName, rowNumber])
+  @@map("import_pm_rows")
+}
+
+model ImportMaterialMasterRow {
+  id                 String              @id @default(cuid())
+  batchId            String
+  sourceFileName     String?
+  sheetName          String?
+  rowNumber          Int
+  processingStatus   ImportProcessStatus @default(PENDING)
+  errorMessage       String?
+  materialCode       String?
+  materialType       String?
+  description        String?
+  format             String?
+  measures           String?
+  drawingCode        String?
+  specificationCode  String?
+  technicalSheetCode String?
+  observations       String?
+  rawData            Json
+  processedAt        DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([batchId, processingStatus])
+  @@unique([batchId, sheetName, rowNumber])
+  @@map("import_material_master_rows")
+}
+
+model ImportBomRow {
+  id                   String              @id @default(cuid())
+  batchId              String
+  sourceFileName       String?
+  sheetName            String?
+  rowNumber            Int
+  processingStatus     ImportProcessStatus @default(PENDING)
+  errorMessage         String?
+  projectCode          String?
+  componentKey         String?
+  componentName        String?
+  componentType        String?
+  quantity             Float?
+  unit                 String?
+  isPackaging          Boolean?
+  expectedMaterialCode String?
+  rawData              Json
+  processedAt          DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@index([batchId, processingStatus])
+  @@unique([batchId, sheetName, rowNumber])
+  @@map("import_bom_rows")
+}
+
+model ImportMaterialRequestRow {
+  id                   String              @id @default(cuid())
+  batchId              String
+  sourceFileName       String?
+  sheetName            String?
+  rowNumber            Int
+  processingStatus     ImportProcessStatus @default(PENDING)
+  errorMessage         String?
+  projectCode          String?
+  requestCode          String?
+  requestDate          DateTime?
+  requestedBy          String?
+  materialType         String?
+  requestedDescription String?
+  requestStatus        String?
+  linkedMaterialCode   String?
+  rawData              Json
+  processedAt          DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@index([batchId, processingStatus])
+  @@unique([batchId, sheetName, rowNumber])
+  @@map("import_material_request_rows")
+}
+
+model ImportMoondeskRaw {
+  id               String              @id @default(cuid())
+  batchId          String
+  externalTaskId   String?
+  payload          Json
+  processingStatus ImportProcessStatus @default(PENDING)
+  errorMessage     String?
+  processedAt      DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([batchId, processingStatus])
+  @@unique([batchId, externalTaskId])
+  @@map("import_moondesk_raw")
+}
+
+model ImportSapRaw {
+  id               String              @id @default(cuid())
+  batchId          String
+  sapMaterialId    String?
+  materialCode     String?
+  payload          Json
+  processingStatus ImportProcessStatus @default(PENDING)
+  errorMessage     String?
+  processedAt      DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  sapMaterial      SapMaterial?        @relation(fields: [sapMaterialId], references: [id])
+
+  @@index([batchId, processingStatus])
+  @@unique([batchId, materialCode])
+  @@map("import_sap_raw")
+}
