@@ -1,4 +1,4 @@
-import { Prisma, ProjectStatus } from "@prisma/client";
+import { Prisma, ProjectStatus, ScopeDefinedStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
@@ -27,14 +27,26 @@ export const projectsRepository = {
         owner: true,
         projectItems: {
           include: {
-            materialMaster: true,
+            project: true,
+            materialMaster: {
+              include: {
+                sapMaterial: true
+              }
+            },
             bomItem: true,
             materialRequest: true,
             alerts: {
               where: { status: "OPEN" },
               orderBy: [{ severity: "desc" }, { createdAt: "desc" }]
             },
+            evidences: {
+              orderBy: [{ isPrimary: "desc" }, { updatedAt: "desc" }]
+            },
             moondeskTasks: {
+              include: {
+                documents: true,
+                reviews: true
+              },
               orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }]
             },
             technicalChecks: true
@@ -68,6 +80,12 @@ export const projectsRepository = {
     code: string;
     name: string;
     businessUnit: Prisma.ProjectCreateInput["businessUnit"];
+    caseType?: string | null;
+    changeDriver?: string | null;
+    presentation?: string | null;
+    activeIngredient?: string | null;
+    sapFinishedCode?: string | null;
+    scopeDefined?: ScopeDefinedStatus;
     productId?: string | null;
     ownerId?: string | null;
     sourcePmKey?: string | null;
@@ -86,6 +104,12 @@ export const projectsRepository = {
       code: params.code,
       name: params.name,
       businessUnit: params.businessUnit,
+      caseType: params.caseType ?? null,
+      changeDriver: params.changeDriver ?? null,
+      presentation: params.presentation ?? null,
+      activeIngredient: params.activeIngredient ?? null,
+      sapFinishedCode: params.sapFinishedCode ?? null,
+      scopeDefined: params.scopeDefined ?? ScopeDefinedStatus.UNKNOWN,
       productId: params.productId ?? null,
       ownerId: params.ownerId ?? null,
       sourcePmKey: params.sourcePmKey ?? null,

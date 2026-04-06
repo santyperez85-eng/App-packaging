@@ -1,11 +1,16 @@
 import { AlertSeverity, AlertStatus, ProjectItemStatus, ProjectStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { isMockPreviewEnabled, mockData } from "@/server/mock-data";
 import { projectsRepository } from "@/server/repositories/projects-repository";
 import { alertsRepository } from "@/server/repositories/alerts-repository";
 
 export const dashboardService = {
   async getExecutiveSnapshot() {
+    if (isMockPreviewEnabled()) {
+      return mockData.dashboard;
+    }
+
     const [totalProjects, activeProjects, blockedProjects, totalItems, readyItems, openAlerts, criticalAlerts, atRiskProjects] =
       await Promise.all([
         prisma.project.count(),

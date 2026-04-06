@@ -26,6 +26,19 @@ export const importsRepository = {
     });
   },
 
+  findLatestPmRowForProject(params: { sourcePmKey?: string | null; projectCode: string }) {
+    const candidateProjectCodes = [params.sourcePmKey, params.projectCode].filter(Boolean) as string[];
+
+    return prisma.importPmRow.findFirst({
+      where: {
+        projectCode: {
+          in: candidateProjectCodes
+        }
+      },
+      orderBy: [{ processedAt: "desc" }, { updatedAt: "desc" }, { createdAt: "desc" }]
+    });
+  },
+
   getPendingMaterialMasterRows() {
     return prisma.importMaterialMasterRow.findMany({
       where: { processingStatus: ImportProcessStatus.PENDING },

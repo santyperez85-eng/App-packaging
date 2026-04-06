@@ -4,6 +4,12 @@ export const projectInputSchema = z.object({
   code: z.string().min(1),
   name: z.string().min(1),
   businessUnit: z.enum(["PHARMA", "COSMETIC"]),
+  caseType: z.string().optional().nullable(),
+  changeDriver: z.string().optional().nullable(),
+  presentation: z.string().optional().nullable(),
+  activeIngredient: z.string().optional().nullable(),
+  sapFinishedCode: z.string().optional().nullable(),
+  scopeDefined: z.enum(["UNKNOWN", "PARTIAL", "DEFINED"]).optional(),
   productId: z.string().cuid().optional().nullable(),
   ownerId: z.string().cuid().optional().nullable(),
   sourcePmKey: z.string().optional().nullable(),
@@ -19,6 +25,31 @@ export const projectItemInputSchema = z.object({
   itemKey: z.string().min(1),
   name: z.string().min(1),
   description: z.string().optional().nullable(),
+  componentSlot: z
+    .enum([
+      "ESTUCHE",
+      "PROSPECTO",
+      "ETIQUETA",
+      "FRASCO",
+      "BLISTER",
+      "ALUMINIO",
+      "POMO",
+      "FOLLETO",
+      "INSERTO",
+      "PORTA_BLISTER",
+      "CALENDARIO",
+      "OTRO"
+    ])
+    .optional(),
+  applicabilityStatus: z.enum(["APPLIES", "DOES_NOT_APPLY", "UNKNOWN"]).optional(),
+  originMode: z
+    .enum(["PM_EXPECTED", "BOM_DETECTED", "REQUEST_DETECTED", "SAP_DETECTED", "MOONDESK_DETECTED", "MANUAL"])
+    .optional(),
+  provisional: z.boolean().optional(),
+  expectedStatus: z.enum(["EXPECTED", "EVIDENCED", "EXPECTED_BUT_MISSING", "NOT_EXPECTED"]).optional(),
+  identificationStatus: z.enum(["NOT_IDENTIFIED", "PARTIALLY_IDENTIFIED", "IDENTIFIED"]).optional(),
+  matchingStatus: z.enum(["EXACT", "INFERRED", "AMBIGUOUS", "MANUAL_REVIEW"]).optional(),
+  provisionalCode: z.string().optional().nullable(),
   itemType: z
     .enum(["BOX", "LABEL", "BOTTLE", "LEAFLET", "INSERT", "TUBE", "CAP", "SACHET", "OTHER"])
     .optional(),

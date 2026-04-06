@@ -29,6 +29,12 @@ enum ProjectStatus {
   CLOSED
 }
 
+enum ScopeDefinedStatus {
+  UNKNOWN
+  PARTIAL
+  DEFINED
+}
+
 enum ItemType {
   BOX
   LABEL
@@ -55,6 +61,62 @@ enum ProjectItemStatus {
   WAITING_DOCS
   BLOCKED
   READY
+}
+
+enum ComponentSlot {
+  ESTUCHE
+  PROSPECTO
+  ETIQUETA
+  FRASCO
+  BLISTER
+  ALUMINIO
+  POMO
+  FOLLETO
+  INSERTO
+  PORTA_BLISTER
+  CALENDARIO
+  OTRO
+}
+
+enum ApplicabilityStatus {
+  APPLIES
+  DOES_NOT_APPLY
+  UNKNOWN
+}
+
+enum ProjectItemExpectedStatus {
+  EXPECTED
+  EVIDENCED
+  EXPECTED_BUT_MISSING
+  NOT_EXPECTED
+}
+
+enum ProjectItemIdentificationStatus {
+  NOT_IDENTIFIED
+  PARTIALLY_IDENTIFIED
+  IDENTIFIED
+}
+
+enum MatchingStatus {
+  EXACT
+  INFERRED
+  AMBIGUOUS
+  MANUAL_REVIEW
+}
+
+enum ProjectItemOriginMode {
+  PM_EXPECTED
+  BOM_DETECTED
+  REQUEST_DETECTED
+  SAP_DETECTED
+  MOONDESK_DETECTED
+  MANUAL
+}
+
+enum MatchConfidence {
+  HIGH
+  MEDIUM
+  LOW
 }
 
 enum MaterialType {
@@ -200,6 +262,12 @@ model Project {
   ownerId          String?
   code             String            @unique
   name             String
+  caseType         String?
+  changeDriver     String?
+  presentation     String?
+  activeIngredient String?
+  sapFinishedCode  String?
+  scopeDefined     ScopeDefinedStatus @default(UNKNOWN)
   description      String?
   businessUnit     BusinessUnit
   status           ProjectStatus     @default(PLANNING)
@@ -219,6 +287,7 @@ model Project {
   alerts           Alert[]
 
   @@index([productId])
+  @@index([sapFinishedCode])
   @@index([status])
   @@map("projects")
 }
@@ -232,6 +301,14 @@ model ProjectItem {
   itemKey                  String
   name                     String
   description              String?
+  componentSlot            ComponentSlot            @default(OTRO)
+  applicabilityStatus      ApplicabilityStatus      @default(UNKNOWN)
+  originMode               ProjectItemOriginMode    @default(MANUAL)
+  provisional              Boolean                  @default(false)
+  expectedStatus           ProjectItemExpectedStatus @default(EXPECTED)
+  identificationStatus     ProjectItemIdentificationStatus @default(NOT_IDENTIFIED)
+  matchingStatus           MatchingStatus           @default(MANUAL_REVIEW)
+  provisionalCode          String?
   itemType                 ItemType                 @default(OTHER)
   criticality              ItemCriticality          @default(HIGH)
   status                   ProjectItemStatus        @default(PENDING)
@@ -249,6 +326,7 @@ model ProjectItem {
   materialRequest          MaterialRequest?         @relation(fields: [materialRequestId], references: [id])
   materialMaster           MaterialsMaster?         @relation(fields: [materialMasterId], references: [id])
   moondeskTasks            MoondeskTask[]
+  evidences                ProjectItemEvidence[]
   technicalChecks          TechnicalCheck[]
   alerts                   Alert[]
   approvals                Approval[]
@@ -256,7 +334,31 @@ model ProjectItem {
 
   @@unique([projectId, itemKey])
   @@index([projectId, status])
+  @@index([projectId, componentSlot])
+  @@index([projectId, provisionalCode])
+  @@index([projectId, expectedMaterialCode])
   @@map("project_items")
+}
+
+model ProjectItemEvidence {
+  id              String          @id @default(cuid())
+  projectItemId   String
+  sourceType      String
+  sourceRecordKey String
+  matchRule       String?
+  matchConfidence MatchConfidence @default(MEDIUM)
+  matchStatus     MatchingStatus  @default(MANUAL_REVIEW)
+  isPrimary       Boolean         @default(false)
+  lastSeenAt      DateTime?
+  rawLabel        String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  projectItem     ProjectItem     @relation(fields: [projectItemId], references: [id])
+
+  @@unique([projectItemId, sourceType, sourceRecordKey])
+  @@index([projectItemId, matchStatus])
+  @@index([sourceType, sourceRecordKey])
+  @@map("project_item_evidences")
 }
 
 model BomItem {

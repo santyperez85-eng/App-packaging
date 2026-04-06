@@ -1,6 +1,17 @@
-import { ItemCriticality, ItemType, ProjectItemStatus } from "@prisma/client";
+import {
+  ApplicabilityStatus,
+  ComponentSlot,
+  ItemCriticality,
+  ItemType,
+  MatchingStatus,
+  ProjectItemExpectedStatus,
+  ProjectItemIdentificationStatus,
+  ProjectItemOriginMode,
+  ProjectItemStatus
+} from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { isMockPreviewEnabled, mockData } from "@/server/mock-data";
 import { projectItemsRepository } from "@/server/repositories/project-items-repository";
 import { alertsRepository } from "@/server/repositories/alerts-repository";
 import { evaluateProjectItemRules } from "@/server/rules/project-item-rules";
@@ -8,6 +19,22 @@ import { projectsService } from "@/server/services/projects-service";
 
 export const projectItemsService = {
   listProjectItems(filters?: { projectId?: string; status?: ProjectItemStatus }) {
+    if (isMockPreviewEnabled()) {
+      return Promise.resolve(
+        mockData.projectItems.filter((item) => {
+          if (filters?.projectId && item.projectId !== filters.projectId) {
+            return false;
+          }
+
+          if (filters?.status && item.status !== filters.status) {
+            return false;
+          }
+
+          return true;
+        })
+      );
+    }
+
     return projectItemsRepository.list({
       projectId: filters?.projectId,
       status: filters?.status
@@ -19,6 +46,14 @@ export const projectItemsService = {
     itemKey: string;
     name: string;
     description?: string | null;
+    componentSlot?: ComponentSlot;
+    applicabilityStatus?: ApplicabilityStatus;
+    originMode?: ProjectItemOriginMode;
+    provisional?: boolean;
+    expectedStatus?: ProjectItemExpectedStatus;
+    identificationStatus?: ProjectItemIdentificationStatus;
+    matchingStatus?: MatchingStatus;
+    provisionalCode?: string | null;
     itemType?: ItemType;
     criticality?: ItemCriticality;
     bomItemId?: string | null;
@@ -40,6 +75,7 @@ export const projectItemsService = {
         materialRequest: true,
         alerts: true,
         technicalChecks: true,
+        evidences: true,
         moondeskTasks: {
           include: {
             documents: true,
@@ -54,8 +90,16 @@ export const projectItemsService = {
     const item = await prisma.projectItem.findUnique({
       where: { id: projectItemId },
       include: {
-        materialMaster: true,
+        project: true,
+        bomItem: true,
+        materialRequest: true,
+        materialMaster: {
+          include: {
+            sapMaterial: true
+          }
+        },
         alerts: true,
+        evidences: true,
         technicalChecks: true,
         moondeskTasks: {
           include: {
@@ -80,7 +124,8 @@ export const projectItemsService = {
         title: alert.title,
         message: alert.message,
         severity: alert.severity,
-        ruleCode: alert.ruleCode
+        ruleCode: alert.ruleCode,
+        metadata: alert.metadata
       });
     }
 

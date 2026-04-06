@@ -1,4 +1,10 @@
-import { BusinessUnit, ItemType, MaterialType } from "@prisma/client";
+import {
+  BusinessUnit,
+  ComponentSlot,
+  ItemType,
+  MaterialType,
+  ScopeDefinedStatus
+} from "@prisma/client";
 
 export function normalizeText(value: unknown) {
   return String(value ?? "")
@@ -125,6 +131,74 @@ export function inferMaterialType(value: unknown): MaterialType {
   }
 
   return MaterialType.OTHER;
+}
+
+export function inferComponentSlot(value: unknown): ComponentSlot {
+  const normalized = normalizeText(value);
+
+  if (normalized.includes("porta blister") || normalized.includes("porta_blister")) {
+    return ComponentSlot.PORTA_BLISTER;
+  }
+
+  if (normalized.includes("calendar") || normalized.includes("calendario")) {
+    return ComponentSlot.CALENDARIO;
+  }
+
+  if (normalized.includes("estuche") || normalized.includes("box")) {
+    return ComponentSlot.ESTUCHE;
+  }
+
+  if (normalized.includes("prospecto") || normalized.includes("leaflet")) {
+    return ComponentSlot.PROSPECTO;
+  }
+
+  if (normalized.includes("etiqueta") || normalized.includes("label")) {
+    return ComponentSlot.ETIQUETA;
+  }
+
+  if (normalized.includes("frasco") || normalized.includes("bottle")) {
+    return ComponentSlot.FRASCO;
+  }
+
+  if (normalized.includes("blister")) {
+    return ComponentSlot.BLISTER;
+  }
+
+  if (normalized.includes("aluminio") || normalized.includes("foil") || normalized.includes("alu")) {
+    return ComponentSlot.ALUMINIO;
+  }
+
+  if (normalized.includes("pomo")) {
+    return ComponentSlot.POMO;
+  }
+
+  if (normalized.includes("folleto")) {
+    return ComponentSlot.FOLLETO;
+  }
+
+  if (normalized.includes("inserto") || normalized.includes("insert")) {
+    return ComponentSlot.INSERTO;
+  }
+
+  if (normalized.includes("calendario")) {
+    return ComponentSlot.CALENDARIO;
+  }
+
+  return ComponentSlot.OTRO;
+}
+
+export function parseScopeDefined(value: unknown): ScopeDefinedStatus {
+  const normalized = normalizeText(value).replace(/-/g, "_");
+
+  if (["defined", "definido", "completo"].includes(normalized)) {
+    return ScopeDefinedStatus.DEFINED;
+  }
+
+  if (["partial", "parcial"].includes(normalized)) {
+    return ScopeDefinedStatus.PARTIAL;
+  }
+
+  return ScopeDefinedStatus.UNKNOWN;
 }
 
 export function compact<T>(values: Array<T | null | undefined | false>) {

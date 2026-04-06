@@ -1,16 +1,23 @@
 import {
+  ApplicabilityStatus,
   AlertSeverity,
   AlertStatus,
   BusinessUnit,
   CheckStatus,
   CheckType,
+  ComponentSlot,
   ItemCriticality,
   ItemType,
+  MatchConfidence,
+  MatchingStatus,
   MaterialRequestStatus,
   MaterialType,
   MoondeskTaskStatus,
   MoondeskTaskType,
   PrismaClient,
+  ProjectItemExpectedStatus,
+  ProjectItemIdentificationStatus,
+  ProjectItemOriginMode,
   ProjectItemStatus,
   ProjectStatus,
   ReviewDecision
@@ -69,6 +76,12 @@ async function main() {
     create: {
       code: "COS-2026-001",
       name: "Relanzamiento Dermacalm 30 ml",
+      caseType: "relaunch",
+      changeDriver: "commercial_visible",
+      presentation: "30 ml",
+      activeIngredient: null,
+      sapFinishedCode: "PT-COS-3011",
+      scopeDefined: "DEFINED",
       businessUnit: BusinessUnit.COSMETIC,
       productId: dermacalm.id,
       ownerId: pmUser.id,
@@ -87,6 +100,12 @@ async function main() {
     create: {
       code: "PHA-2026-014",
       name: "Actualizacion prospecto Cefalexin",
+      caseType: "regulatory_update",
+      changeDriver: "regulatory",
+      presentation: "250 mg / 5 ml",
+      activeIngredient: "Cefalexina",
+      sapFinishedCode: "PT-PHA-2505",
+      scopeDefined: "PARTIAL",
       businessUnit: BusinessUnit.PHARMA,
       productId: cefalexin.id,
       ownerId: pmUser.id,
@@ -285,6 +304,13 @@ async function main() {
       bomItemId: cosmeticBoxBom.id,
       materialMasterId: boxMaterial.id,
       name: "Estuche 30 ml",
+      componentSlot: ComponentSlot.ESTUCHE,
+      applicabilityStatus: ApplicabilityStatus.APPLIES,
+      originMode: ProjectItemOriginMode.BOM_DETECTED,
+      provisional: false,
+      expectedStatus: ProjectItemExpectedStatus.EVIDENCED,
+      identificationStatus: ProjectItemIdentificationStatus.IDENTIFIED,
+      matchingStatus: MatchingStatus.EXACT,
       itemType: ItemType.BOX,
       criticality: ItemCriticality.CRITICAL,
       status: ProjectItemStatus.IN_PROGRESS,
@@ -307,6 +333,13 @@ async function main() {
       bomItemId: cosmeticLabelBom.id,
       materialMasterId: labelMaterial.id,
       name: "Etiqueta frontal",
+      componentSlot: ComponentSlot.ETIQUETA,
+      applicabilityStatus: ApplicabilityStatus.APPLIES,
+      originMode: ProjectItemOriginMode.BOM_DETECTED,
+      provisional: false,
+      expectedStatus: ProjectItemExpectedStatus.EVIDENCED,
+      identificationStatus: ProjectItemIdentificationStatus.IDENTIFIED,
+      matchingStatus: MatchingStatus.EXACT,
       itemType: ItemType.LABEL,
       criticality: ItemCriticality.HIGH,
       status: ProjectItemStatus.WAITING_DOCS,
@@ -329,6 +362,14 @@ async function main() {
       bomItemId: cosmeticBottleBom.id,
       materialRequestId: bottleRequest.id,
       name: "Frasco PET 30 ml",
+      componentSlot: ComponentSlot.FRASCO,
+      applicabilityStatus: ApplicabilityStatus.APPLIES,
+      originMode: ProjectItemOriginMode.BOM_DETECTED,
+      provisional: true,
+      expectedStatus: ProjectItemExpectedStatus.EVIDENCED,
+      identificationStatus: ProjectItemIdentificationStatus.PARTIALLY_IDENTIFIED,
+      matchingStatus: MatchingStatus.INFERRED,
+      provisionalCode: "REQ-26031",
       itemType: ItemType.BOTTLE,
       criticality: ItemCriticality.CRITICAL,
       status: ProjectItemStatus.WAITING_CODE,
@@ -352,6 +393,13 @@ async function main() {
       materialRequestId: leafletRequest.id,
       materialMasterId: leafletMaterial.id,
       name: "Prospecto regulatorio",
+      componentSlot: ComponentSlot.PROSPECTO,
+      applicabilityStatus: ApplicabilityStatus.APPLIES,
+      originMode: ProjectItemOriginMode.BOM_DETECTED,
+      provisional: false,
+      expectedStatus: ProjectItemExpectedStatus.EVIDENCED,
+      identificationStatus: ProjectItemIdentificationStatus.IDENTIFIED,
+      matchingStatus: MatchingStatus.EXACT,
       itemType: ItemType.LEAFLET,
       criticality: ItemCriticality.CRITICAL,
       status: ProjectItemStatus.BLOCKED,
@@ -494,6 +542,111 @@ async function main() {
     }
   });
 
+  await prisma.projectItemEvidence.createMany({
+    data: [
+      {
+        projectItemId: itemBox.id,
+        sourceType: "bom",
+        sourceRecordKey: "ESTUCHE-30",
+        matchRule: "project_id + component_key",
+        matchConfidence: MatchConfidence.HIGH,
+        matchStatus: MatchingStatus.EXACT,
+        isPrimary: true,
+        lastSeenAt: new Date("2026-03-25"),
+        rawLabel: "Estuche 30 ml"
+      },
+      {
+        projectItemId: itemBox.id,
+        sourceType: "materials_master",
+        sourceRecordKey: "MAT-EST-001",
+        matchRule: "material_code_exact",
+        matchConfidence: MatchConfidence.HIGH,
+        matchStatus: MatchingStatus.EXACT,
+        isPrimary: false,
+        lastSeenAt: new Date("2026-03-25"),
+        rawLabel: "Estuche Dermacalm 30 ml"
+      },
+      {
+        projectItemId: itemLabel.id,
+        sourceType: "bom",
+        sourceRecordKey: "ETIQUETA-FRONTAL",
+        matchRule: "project_id + component_key",
+        matchConfidence: MatchConfidence.HIGH,
+        matchStatus: MatchingStatus.EXACT,
+        isPrimary: true,
+        lastSeenAt: new Date("2026-03-25"),
+        rawLabel: "Etiqueta frontal"
+      },
+      {
+        projectItemId: itemLabel.id,
+        sourceType: "materials_master",
+        sourceRecordKey: "MAT-ETQ-014",
+        matchRule: "material_code_exact",
+        matchConfidence: MatchConfidence.HIGH,
+        matchStatus: MatchingStatus.EXACT,
+        isPrimary: false,
+        lastSeenAt: new Date("2026-03-25"),
+        rawLabel: "Etiqueta frontal Dermacalm 30 ml"
+      },
+      {
+        projectItemId: itemBottle.id,
+        sourceType: "bom",
+        sourceRecordKey: "FRASCO-30",
+        matchRule: "project_id + component_key",
+        matchConfidence: MatchConfidence.HIGH,
+        matchStatus: MatchingStatus.EXACT,
+        isPrimary: true,
+        lastSeenAt: new Date("2026-03-25"),
+        rawLabel: "Frasco PET 30 ml"
+      },
+      {
+        projectItemId: itemBottle.id,
+        sourceType: "material_request",
+        sourceRecordKey: "req-cos-bottle-001",
+        matchRule: "project_id + description_match",
+        matchConfidence: MatchConfidence.MEDIUM,
+        matchStatus: MatchingStatus.INFERRED,
+        isPrimary: false,
+        lastSeenAt: new Date("2026-03-14"),
+        rawLabel: "Frasco PET transparente 30 ml"
+      },
+      {
+        projectItemId: itemLeaflet.id,
+        sourceType: "bom",
+        sourceRecordKey: "PROSPECTO-REG",
+        matchRule: "project_id + component_key",
+        matchConfidence: MatchConfidence.HIGH,
+        matchStatus: MatchingStatus.EXACT,
+        isPrimary: true,
+        lastSeenAt: new Date("2026-02-18"),
+        rawLabel: "Prospecto regulatorio"
+      },
+      {
+        projectItemId: itemLeaflet.id,
+        sourceType: "materials_master",
+        sourceRecordKey: "MAT-PRO-033",
+        matchRule: "material_code_exact",
+        matchConfidence: MatchConfidence.HIGH,
+        matchStatus: MatchingStatus.EXACT,
+        isPrimary: false,
+        lastSeenAt: new Date("2026-02-18"),
+        rawLabel: "Prospecto Cefalexin 250 mg / 5 ml"
+      },
+      {
+        projectItemId: itemLeaflet.id,
+        sourceType: "material_request",
+        sourceRecordKey: "req-pha-leaflet-001",
+        matchRule: "project_id + linked_material_code",
+        matchConfidence: MatchConfidence.HIGH,
+        matchStatus: MatchingStatus.EXACT,
+        isPrimary: false,
+        lastSeenAt: new Date("2026-02-18"),
+        rawLabel: "Prospecto actualizado por cambio regulatorio"
+      }
+    ],
+    skipDuplicates: true
+  });
+
   await prisma.importPmRow.createMany({
     data: [
       {
@@ -513,7 +666,14 @@ async function main() {
         rawData: {
           project_code: "COS-2026-001",
           product_name: "Dermacalm Serum",
-          macro_status: "Packaging en ejecucion"
+          macro_status: "Packaging en ejecucion",
+          packaging_components: ["estuche", "etiqueta", "frasco"],
+          aplica_estuche: "si",
+          aplica_etiqueta: "si",
+          aplica_frasco: "si",
+          estuche_desc: "Estuche 30 ml",
+          etiqueta_desc: "Etiqueta frontal",
+          frasco_desc: "Frasco PET 30 ml"
         }
       },
       {
@@ -533,7 +693,10 @@ async function main() {
         rawData: {
           project_code: "PHA-2026-014",
           product_name: "Cefalexin Suspension",
-          macro_status: "Esperando revision regulatoria"
+          macro_status: "Esperando revision regulatoria",
+          packaging_components: ["prospecto"],
+          aplica_prospecto: "si",
+          prospecto_desc: "Prospecto regulatorio"
         }
       }
     ],

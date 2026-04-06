@@ -1,4 +1,13 @@
-import { Prisma, ProjectItemStatus } from "@prisma/client";
+import {
+  ApplicabilityStatus,
+  ComponentSlot,
+  MatchingStatus,
+  Prisma,
+  ProjectItemExpectedStatus,
+  ProjectItemIdentificationStatus,
+  ProjectItemOriginMode,
+  ProjectItemStatus
+} from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
@@ -8,7 +17,11 @@ export const projectItemsRepository = {
       where,
       include: {
         project: true,
-        materialMaster: true,
+        materialMaster: {
+          include: {
+            sapMaterial: true
+          }
+        },
         bomItem: true,
         materialRequest: true,
         alerts: {
@@ -20,7 +33,8 @@ export const projectItemsRepository = {
             reviews: true
           }
         },
-        technicalChecks: true
+        technicalChecks: true,
+        evidences: true
       },
       orderBy: [{ updatedAt: "desc" }]
     });
@@ -42,6 +56,14 @@ export const projectItemsRepository = {
     itemKey: string;
     name: string;
     description?: string | null;
+    componentSlot?: ComponentSlot;
+    applicabilityStatus?: ApplicabilityStatus;
+    originMode?: ProjectItemOriginMode;
+    provisional?: boolean;
+    expectedStatus?: ProjectItemExpectedStatus;
+    identificationStatus?: ProjectItemIdentificationStatus;
+    matchingStatus?: MatchingStatus;
+    provisionalCode?: string | null;
     itemType?: Prisma.ProjectItemUncheckedCreateInput["itemType"];
     criticality?: Prisma.ProjectItemUncheckedCreateInput["criticality"];
     status?: ProjectItemStatus;
@@ -54,6 +76,41 @@ export const projectItemsRepository = {
     requiresMaterialCode?: boolean;
     requiresTechnicalDocs?: boolean;
   }) {
+    const updateData: Prisma.ProjectItemUpdateInput = {
+      name: params.name
+    };
+
+    if (params.description !== undefined) updateData.description = params.description;
+    if (params.componentSlot !== undefined) updateData.componentSlot = params.componentSlot;
+    if (params.applicabilityStatus !== undefined) updateData.applicabilityStatus = params.applicabilityStatus;
+    if (params.originMode !== undefined) updateData.originMode = params.originMode;
+    if (params.provisional !== undefined) updateData.provisional = params.provisional;
+    if (params.expectedStatus !== undefined) updateData.expectedStatus = params.expectedStatus;
+    if (params.identificationStatus !== undefined) updateData.identificationStatus = params.identificationStatus;
+    if (params.matchingStatus !== undefined) updateData.matchingStatus = params.matchingStatus;
+    if (params.provisionalCode !== undefined) updateData.provisionalCode = params.provisionalCode;
+    if (params.itemType !== undefined) updateData.itemType = params.itemType;
+    if (params.criticality !== undefined) updateData.criticality = params.criticality;
+    if (params.status !== undefined) updateData.status = params.status;
+    if (params.readinessScore !== undefined) updateData.readinessScore = params.readinessScore;
+    if (params.bomItemId !== undefined) updateData.bomItem = params.bomItemId ? { connect: { id: params.bomItemId } } : { disconnect: true };
+    if (params.materialRequestId !== undefined) {
+      updateData.materialRequest = params.materialRequestId
+        ? { connect: { id: params.materialRequestId } }
+        : { disconnect: true };
+    }
+    if (params.materialMasterId !== undefined) {
+      updateData.materialMaster = params.materialMasterId
+        ? { connect: { id: params.materialMasterId } }
+        : { disconnect: true };
+    }
+    if (params.expectedMaterialCode !== undefined) updateData.expectedMaterialCode = params.expectedMaterialCode;
+    if (params.requiresApprovedDocument !== undefined) {
+      updateData.requiresApprovedDocument = params.requiresApprovedDocument;
+    }
+    if (params.requiresMaterialCode !== undefined) updateData.requiresMaterialCode = params.requiresMaterialCode;
+    if (params.requiresTechnicalDocs !== undefined) updateData.requiresTechnicalDocs = params.requiresTechnicalDocs;
+
     return prisma.projectItem.upsert({
       where: {
         projectId_itemKey: {
@@ -61,26 +118,20 @@ export const projectItemsRepository = {
           itemKey: params.itemKey
         }
       },
-      update: {
-        name: params.name,
-        description: params.description ?? null,
-        itemType: params.itemType,
-        criticality: params.criticality,
-        status: params.status,
-        readinessScore: params.readinessScore,
-        bomItemId: params.bomItemId ?? null,
-        materialRequestId: params.materialRequestId ?? null,
-        materialMasterId: params.materialMasterId ?? null,
-        expectedMaterialCode: params.expectedMaterialCode ?? null,
-        requiresApprovedDocument: params.requiresApprovedDocument,
-        requiresMaterialCode: params.requiresMaterialCode,
-        requiresTechnicalDocs: params.requiresTechnicalDocs
-      },
+      update: updateData,
       create: {
         projectId: params.projectId,
         itemKey: params.itemKey,
         name: params.name,
         description: params.description ?? null,
+        componentSlot: params.componentSlot,
+        applicabilityStatus: params.applicabilityStatus,
+        originMode: params.originMode,
+        provisional: params.provisional,
+        expectedStatus: params.expectedStatus,
+        identificationStatus: params.identificationStatus,
+        matchingStatus: params.matchingStatus,
+        provisionalCode: params.provisionalCode ?? null,
         itemType: params.itemType,
         criticality: params.criticality,
         status: params.status,

@@ -15,6 +15,7 @@ export async function GET(_: Request, context: { params: Promise<{ projectItemId
         materialRequest: true,
         alerts: true,
         technicalChecks: true,
+        evidences: true,
         moondeskTasks: {
           include: {
             documents: true,
