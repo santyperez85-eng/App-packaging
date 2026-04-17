@@ -1,8 +1,9 @@
-import { Prisma } from "@prisma/client";
+import { ComponentSlot, Prisma } from "@prisma/client";
 
 import {
   booleanOrNull,
   dateOrNull,
+  inferComponentSlot,
   inferBusinessUnit,
   numberOrNull,
   slugify,
@@ -22,6 +23,56 @@ function nestedRawDataOrRow(row: Record<string, unknown>) {
   return row.rawData && typeof row.rawData === "object" && !Array.isArray(row.rawData)
     ? (row.rawData as Record<string, unknown>)
     : row;
+}
+
+const MATERIAL_REQUEST_COMPONENT_SLOT_CANDIDATES = [
+  "component_slot",
+  "componentSlot",
+  "slot",
+  "component",
+  "componente",
+  "tipo componente",
+  "tipo_componente",
+  "componente packaging",
+  "componente_packaging",
+  "pieza",
+  "material_type",
+  "tipo material"
+];
+
+function getExplicitMaterialRequestComponentSlot(row: Record<string, unknown>) {
+  const sourceValue = stringOrNull(getRowValue(row, MATERIAL_REQUEST_COMPONENT_SLOT_CANDIDATES));
+
+  if (!sourceValue) {
+    return null;
+  }
+
+  const componentSlot = inferComponentSlot(sourceValue);
+
+  if (componentSlot === ComponentSlot.OTRO) {
+    return null;
+  }
+
+  return {
+    sourceValue,
+    componentSlot
+  };
+}
+
+function materialRequestRawData(row: Record<string, unknown>) {
+  const explicitComponentSlot = getExplicitMaterialRequestComponentSlot(row);
+
+  return {
+    ...row,
+    sourceNormalization: {
+      ...(explicitComponentSlot
+        ? {
+            explicitComponentSlot: explicitComponentSlot.componentSlot,
+            explicitComponentSlotSourceValue: explicitComponentSlot.sourceValue
+          }
+        : {})
+    }
+  };
 }
 
 export function mapPmImportRow({
@@ -120,19 +171,74 @@ export function mapMaterialRequestImportRow({
   row,
   rowNumber
 }: MapperContext): Prisma.ImportMaterialRequestRowCreateManyInput {
+  const explicitComponentSlot = getExplicitMaterialRequestComponentSlot(row);
+  const requestedDescription =
+    stringOrNull(
+      getRowValue(row, [
+        "requested_description",
+        "descripcion solicitada",
+        "descripcion",
+        "description",
+        "material_description",
+        "descripcion material",
+        "detalle",
+        "concepto"
+      ])
+    ) ?? explicitComponentSlot?.sourceValue;
+
   return {
     batchId,
     sourceFileName,
     sheetName,
     rowNumber,
-    projectCode: stringOrNull(getRowValue(row, ["project_code", "codigo proyecto"])),
-    requestCode: stringOrNull(getRowValue(row, ["request_code", "pedido codigo"])),
-    requestDate: dateOrNull(getRowValue(row, ["request_date", "fecha pedido"])),
-    requestedBy: stringOrNull(getRowValue(row, ["requested_by", "solicitado por"])),
-    materialType: stringOrNull(getRowValue(row, ["material_type", "tipo material"])),
-    requestedDescription: stringOrNull(getRowValue(row, ["requested_description", "descripcion solicitada"])),
-    requestStatus: stringOrNull(getRowValue(row, ["request_status", "estado pedido"])),
-    linkedMaterialCode: stringOrNull(getRowValue(row, ["linked_material_code", "material code", "codigo material"])),
-    rawData: JSON.parse(JSON.stringify(row)) as Prisma.InputJsonObject
+    projectCode: stringOrNull(
+      getRowValue(row, ["project_code", "codigo proyecto", "proyecto", "project id", "case_code", "codigo caso"])
+    ),
+    requestCode: stringOrNull(
+      getRowValue(row, [
+        "request_code",
+        "pedido codigo",
+        "pedido de codigo",
+        "solicitud codigo",
+        "solicitud de codigo",
+        "codigo solicitud",
+        "nro solicitud",
+        "numero solicitud",
+        "numero de solicitud",
+        "alta codigo",
+        "alta de codigo",
+        "nro alta",
+        "numero alta",
+        "id alta"
+      ])
+    ),
+    requestDate: dateOrNull(
+      getRowValue(row, ["request_date", "fecha pedido", "fecha solicitud", "fecha alta", "fecha"])
+    ),
+    requestedBy: stringOrNull(
+      getRowValue(row, ["requested_by", "solicitado por", "solicitante", "responsable", "owner"])
+    ),
+    materialType: stringOrNull(
+      getRowValue(row, ["material_type", "tipo material", "tipo componente", "componente", "component"])
+    ),
+    requestedDescription: requestedDescription,
+    requestStatus: stringOrNull(
+      getRowValue(row, ["request_status", "estado pedido", "estado solicitud", "estado alta", "estado", "status"])
+    ),
+    linkedMaterialCode: stringOrNull(
+      getRowValue(row, [
+        "linked_material_code",
+        "material code",
+        "material_code",
+        "codigo material",
+        "codigo sap material",
+        "codigo sap",
+        "codigo asignado",
+        "codigo creado",
+        "nuevo codigo",
+        "cod material"
+      ])
+    ),
+    rawData: JSON.parse(JSON.stringify(materialRequestRawData(row))) as Prisma.InputJsonObject
   };
 }

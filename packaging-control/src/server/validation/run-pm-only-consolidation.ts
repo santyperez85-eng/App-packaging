@@ -8,6 +8,9 @@ import { readPmSheetsFromRequest } from "@/server/etl/excel";
 import { importService } from "@/server/etl/import-service";
 import { mapPmImportRow } from "@/server/etl/import-mappers";
 import { consolidationService } from "@/server/etl/consolidation-service";
+import { buildPyloberPmPayload } from "@/server/validation/pm-material-request-validation-fixture";
+
+type PmPayload = Awaited<ReturnType<typeof readPmWorkbook>> | ReturnType<typeof buildPyloberPmPayload>;
 
 function usage() {
   return [
@@ -16,6 +19,7 @@ function usage() {
     "",
     "Options:",
     "  --allow-existing-data  Run even when the current DB/schema is not empty.",
+    "  --fixture-pylober      Run the controlled PYLOBER PM fixture instead of reading a workbook.",
     "",
     "Recommended:",
     "  Point DATABASE_URL to a disposable schema before running this script."
@@ -23,6 +27,10 @@ function usage() {
 }
 
 function getWorkbookPath() {
+  if (isPyloberFixtureMode()) {
+    return null;
+  }
+
   const positionalArg = process.argv.slice(2).find((arg) => !arg.startsWith("--"));
   const workbookPath = positionalArg ?? process.env.PM_WORKBOOK;
 
@@ -37,6 +45,10 @@ function getWorkbookPath() {
   }
 
   return resolvedPath;
+}
+
+function isPyloberFixtureMode() {
+  return process.argv.includes("--fixture-pylober") || process.env.PM_ONLY_FIXTURE === "pylober";
 }
 
 function isAllowExistingData() {
@@ -119,7 +131,7 @@ async function readPmWorkbook(workbookPath: string) {
   );
 }
 
-function buildImportPreview(payload: Awaited<ReturnType<typeof readPmWorkbook>>) {
+function buildImportPreview(payload: PmPayload) {
   return payload.sheets.flatMap((sheet) =>
     sheet.rows.map((row, index) =>
       mapPmImportRow({
@@ -257,7 +269,7 @@ async function getValidationResult(batchId: string, databaseCountsBefore: Record
 async function main() {
   const workbookPath = getWorkbookPath();
   const databaseCountsBefore = await assertControlledDatabase();
-  const payload = await readPmWorkbook(workbookPath);
+  const payload = workbookPath ? await readPmWorkbook(workbookPath) : buildPyloberPmPayload();
   const importPreview = buildImportPreview(payload);
   const stagingRow = payload.sheets[0]?.rows[0];
   const rawData = stagingRow?.rawData && typeof stagingRow.rawData === "object" ? stagingRow.rawData : {};
@@ -271,6 +283,7 @@ async function main() {
       {
         mode: "pm-only-controlled-consolidation",
         workbookPath,
+        fixture: isPyloberFixtureMode() ? "pylober" : null,
         sourceFileName: payload.sourceFileName,
         batchId: payload.batchId,
         sheetSelection: {

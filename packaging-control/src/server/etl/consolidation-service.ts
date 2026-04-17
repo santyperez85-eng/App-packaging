@@ -1,6 +1,7 @@
 import {
   AlertStatus,
   BusinessUnit,
+  ComponentSlot,
   ItemCriticality,
   MatchConfidence,
   MaterialRequestStatus,
@@ -78,7 +79,8 @@ async function resolveProjectFromImportSource(params: {
 }
 
 function parseMaterialRequestStatus(value: string | null | undefined) {
-  const normalized = normalizeText(value).replace(/-/g, "_").toUpperCase();
+  const normalizedText = normalizeText(value).replace(/[_-]+/g, " ").trim();
+  const normalized = normalizedText.replace(/\s+/g, "_").toUpperCase();
 
   if (
     normalized === MaterialRequestStatus.REQUESTED ||
@@ -89,7 +91,159 @@ function parseMaterialRequestStatus(value: string | null | undefined) {
     return normalized as MaterialRequestStatus;
   }
 
+  if (["solicitado", "solicitada", "pedido", "pedida", "pendiente"].includes(normalizedText)) {
+    return MaterialRequestStatus.REQUESTED;
+  }
+
+  if (
+    ["en curso", "en proceso", "proceso", "procesando", "iniciado", "iniciada", "abierto", "abierta"].includes(
+      normalizedText
+    )
+  ) {
+    return MaterialRequestStatus.IN_PROGRESS;
+  }
+
+  if (["completo", "completa", "completado", "completada", "finalizado", "finalizada", "cerrado", "cerrada"].includes(normalizedText)) {
+    return MaterialRequestStatus.COMPLETED;
+  }
+
+  if (isIgnoredMaterialRequestStatus(value)) {
+    return MaterialRequestStatus.CANCELLED;
+  }
+
   return MaterialRequestStatus.REQUESTED;
+}
+
+const IGNORED_MATERIAL_REQUEST_STATUS_VALUES = new Set([
+  "cancelado",
+  "cancelada",
+  "cancelled",
+  "canceled",
+  "anulado",
+  "anulada",
+  "baja",
+  "rechazado",
+  "rechazada",
+  "no aplica",
+  "no aplicable",
+  "does not apply",
+  "not applicable",
+  "n a",
+  "na"
+]);
+
+function isIgnoredMaterialRequestStatus(value: string | null | undefined) {
+  const normalized = normalizeText(value).replace(/[_/.-]+/g, " ").replace(/\s+/g, " ").trim();
+
+  return IGNORED_MATERIAL_REQUEST_STATUS_VALUES.has(normalized);
+}
+
+function getRawObject(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function getNestedObject(value: unknown, key: string) {
+  const object = getRawObject(value);
+  const nested = object[key];
+
+  return getRawObject(nested);
+}
+
+function parseComponentSlotValue(value: unknown) {
+  const directValue = stringOrNull(value);
+
+  if (!directValue) {
+    return null;
+  }
+
+  if (Object.values(ComponentSlot).includes(directValue as ComponentSlot)) {
+    return directValue as ComponentSlot;
+  }
+
+  const inferred = inferComponentSlot(directValue);
+
+  return inferred === ComponentSlot.OTRO ? null : inferred;
+}
+
+function componentSlotFromNotes(notes: unknown) {
+  const noteValue = stringOrNull(notes);
+
+  if (!noteValue) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(noteValue) as unknown;
+    const parsedSlot = parseComponentSlotValue(getRawObject(parsed).sourceComponentSlot);
+
+    if (parsedSlot) {
+      return parsedSlot;
+    }
+  } catch {
+    const match = noteValue.match(/sourceComponentSlot=([A-Z_]+)/);
+
+    if (match?.[1]) {
+      return parseComponentSlotValue(match[1]);
+    }
+  }
+
+  return null;
+}
+
+function explicitComponentSlotFromMaterialRequest(rawData: unknown, materialType?: string | null) {
+  const rawObject = getRawObject(rawData);
+  const normalization = getNestedObject(rawData, "sourceNormalization");
+  const normalizedSlot = parseComponentSlotValue(normalization.explicitComponentSlot);
+
+  if (normalizedSlot) {
+    return normalizedSlot;
+  }
+
+  const rawSlot = parseComponentSlotValue(
+    getRowValue(rawObject, [
+      "component_slot",
+      "componentSlot",
+      "slot",
+      "component",
+      "componente",
+      "tipo componente",
+      "tipo_componente",
+      "componente packaging",
+      "componente_packaging",
+      "pieza"
+    ])
+  );
+
+  if (rawSlot) {
+    return rawSlot;
+  }
+
+  const notesSlot = componentSlotFromNotes(rawObject.notes);
+
+  if (notesSlot) {
+    return notesSlot;
+  }
+
+  return parseComponentSlotValue(materialType);
+}
+
+function buildMaterialRequestEvidenceRawData(params: {
+  requestId: string;
+  sourceExternalId?: string | null;
+  requestCode?: string | null;
+  requestStatus: MaterialRequestStatus;
+  linkedMaterialCode?: string | null;
+  componentSlot: ComponentSlot;
+}) {
+  return {
+    sourceType: "material_request",
+    materialRequestId: params.requestId,
+    sourceExternalId: params.sourceExternalId ?? null,
+    requestCode: params.requestCode ?? null,
+    requestStatus: params.requestStatus,
+    linkedMaterialCode: params.linkedMaterialCode ?? null,
+    explicitComponentSlot: params.componentSlot
+  } satisfies Prisma.InputJsonObject;
 }
 
 export const consolidationService = {
@@ -212,6 +366,14 @@ export const consolidationService = {
 
     for (const row of pendingRequestRows) {
       try {
+        if (isIgnoredMaterialRequestStatus(row.requestStatus)) {
+          await importsRepository.markMaterialRequestRowIgnored(
+            row.id,
+            `requestStatus=${row.requestStatus ?? "sin estado"} does not count as operational evidence`
+          );
+          continue;
+        }
+
         const sourceRecordKey = row.requestCode ?? String(row.rowNumber);
         const project = await resolveProjectFromImportSource({
           sourceType: "material_request",
@@ -227,6 +389,7 @@ export const consolidationService = {
         const linkedMaterial = row.linkedMaterialCode
           ? await materialsMasterRepository.findByCode(row.linkedMaterialCode)
           : null;
+        const explicitComponentSlot = explicitComponentSlotFromMaterialRequest(row.rawData, row.materialType);
 
         await materialRequestsRepository.upsert({
           sourceExternalId: `${project.code}-${row.requestCode ?? row.rowNumber}`,
@@ -235,10 +398,13 @@ export const consolidationService = {
           requestDate: row.requestDate,
           requestedByName: row.requestedBy,
           requestedDescription: row.requestedDescription,
-          materialType: inferMaterialType(row.materialType),
+          materialType: inferMaterialType(
+            row.materialType ?? explicitComponentSlot
+          ),
           requestStatus: parseMaterialRequestStatus(row.requestStatus),
           linkedMaterialCode: row.linkedMaterialCode,
-          linkedMaterialId: linkedMaterial?.id
+          linkedMaterialId: linkedMaterial?.id,
+          notes: explicitComponentSlot ? JSON.stringify({ sourceComponentSlot: explicitComponentSlot }) : null
         });
 
         await importsRepository.markMaterialRequestRowProcessed(row.id);
@@ -459,6 +625,12 @@ export const consolidationService = {
             : request.linkedMaterialCode
               ? await materialsMasterRepository.findByCode(request.linkedMaterialCode)
               : null;
+        const explicitComponentSlot = explicitComponentSlotFromMaterialRequest(
+          request,
+          request.materialType
+        );
+        const componentSlot = explicitComponentSlot ?? inferComponentSlot(request.requestedDescription);
+        const trustedMaterialCode = linkedMaterial?.materialCode ?? null;
         const resolution = await resolveProjectItemMatch({
           sourceType: "material_request",
           sourceRecordKey: request.sourceExternalId ?? request.id,
@@ -467,13 +639,17 @@ export const consolidationService = {
             code: project.code,
             sapFinishedCode: project.sapFinishedCode
           },
-          materialCode: request.linkedMaterialCode,
-          provisionalCode: request.requestCode,
+          materialCode: trustedMaterialCode,
+          provisionalCode: request.requestCode ?? request.linkedMaterialCode,
           rawLabel: request.requestedDescription,
           description: request.requestedDescription,
-          componentSlot: inferComponentSlot(request.requestedDescription),
+          componentSlot,
           originMode: ProjectItemOriginMode.REQUEST_DETECTED
         });
+
+        if (!resolution.matchedProjectItemId && resolution.matchingStatus === MatchingStatus.MANUAL_REVIEW) {
+          continue;
+        }
 
         const item = await projectItemsRepository.upsert({
           projectId: project.id,
@@ -487,11 +663,11 @@ export const consolidationService = {
           identificationStatus: linkedMaterial ? ProjectItemIdentificationStatus.IDENTIFIED : resolution.identificationStatus,
           matchingStatus: resolution.matchingStatus,
           provisionalCode: resolution.provisionalCode ?? request.requestCode ?? request.linkedMaterialCode ?? null,
-          itemType: inferItemType(request.requestedDescription),
+          itemType: inferItemType(`${componentSlot} ${request.requestedDescription}`),
           criticality: ItemCriticality.HIGH,
           materialRequestId: request.id,
           materialMasterId: linkedMaterial?.id ?? request.linkedMaterialId,
-          expectedMaterialCode: request.linkedMaterialCode,
+          expectedMaterialCode: trustedMaterialCode,
           requiresApprovedDocument: true,
           requiresMaterialCode: true,
           requiresTechnicalDocs: true
@@ -505,7 +681,15 @@ export const consolidationService = {
           matchConfidence: resolution.matchConfidence,
           matchStatus: resolution.evidenceMatchStatus,
           isPrimary: true,
-          rawLabel: request.requestedDescription
+          rawLabel: request.requestedDescription,
+          rawData: buildMaterialRequestEvidenceRawData({
+            requestId: request.id,
+            sourceExternalId: request.sourceExternalId,
+            requestCode: request.requestCode,
+            requestStatus: request.requestStatus,
+            linkedMaterialCode: request.linkedMaterialCode,
+            componentSlot
+          })
         });
         summary.evidencesUpserted += 1;
 

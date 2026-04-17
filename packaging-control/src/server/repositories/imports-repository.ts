@@ -104,6 +104,17 @@ export const importsRepository = {
     });
   },
 
+  markMaterialRequestRowIgnored(id: string, reason: string) {
+    return prisma.importMaterialRequestRow.update({
+      where: { id },
+      data: {
+        processingStatus: ImportProcessStatus.PROCESSED,
+        processedAt: new Date(),
+        errorMessage: `IGNORED: ${reason}`
+      }
+    });
+  },
+
   markPmRowError(id: string, errorMessage: string) {
     return prisma.importPmRow.update({
       where: { id },
