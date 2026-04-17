@@ -5,6 +5,7 @@ import {
   MatchConfidence,
   MaterialRequestStatus,
   MatchingStatus,
+  Prisma,
   ProjectItemIdentificationStatus,
   ProjectItemOriginMode,
   ProjectStatus
@@ -340,7 +341,17 @@ export const consolidationService = {
           matchConfidence: resolution.matchConfidence,
           matchStatus: resolution.evidenceMatchStatus,
           isPrimary: true,
-          rawLabel: expectedComponent.label
+          rawLabel: expectedComponent.label,
+          rawData: expectedComponent.traceability
+            ? ({
+                sourceType: "pm_expected",
+                sourceRecordKey: expectedComponent.sourceRecordKey,
+                definitionRule: expectedComponent.definitionRule,
+                componentSlot: expectedComponent.componentSlot,
+                label: expectedComponent.label,
+                traceability: expectedComponent.traceability
+              } satisfies Prisma.InputJsonObject)
+            : undefined
         });
         summary.evidencesUpserted += 1;
 

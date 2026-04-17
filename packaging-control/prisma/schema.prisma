@@ -351,6 +351,7 @@ model ProjectItemEvidence {
   isPrimary       Boolean         @default(false)
   lastSeenAt      DateTime?
   rawLabel        String?
+  rawData         Json?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   projectItem     ProjectItem     @relation(fields: [projectItemId], references: [id])
@@ -654,6 +655,8 @@ model ImportPmRow {
   productReference String?
   productName      String?
   presentation     String?
+  activeIngredient String?
+  templateType     String?
   businessUnit     BusinessUnit?
   macroStatus      String?
   startDate        DateTime?

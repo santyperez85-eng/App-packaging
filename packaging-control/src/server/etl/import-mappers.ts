@@ -5,6 +5,7 @@ import {
   dateOrNull,
   inferBusinessUnit,
   numberOrNull,
+  slugify,
   stringOrNull
 } from "@/lib/utils";
 import { getRowValue } from "@/server/etl/excel";
@@ -24,9 +25,18 @@ export function mapPmImportRow({
   row,
   rowNumber
 }: MapperContext): Prisma.ImportPmRowCreateManyInput {
-  const projectCode = stringOrNull(getRowValue(row, ["project_code", "codigo proyecto", "project id"]));
-  const projectName = stringOrNull(getRowValue(row, ["project_name", "nombre proyecto"]));
+  const sourceWorkbook = stringOrNull(getRowValue(row, ["sourceWorkbook", "source_workbook"])) ?? sourceFileName ?? null;
   const businessUnitValue = getRowValue(row, ["business_unit", "unidad negocio", "segmento"]);
+  const productName = stringOrNull(getRowValue(row, ["product_name", "producto", "nombre producto"]));
+  const presentation = stringOrNull(getRowValue(row, ["presentation", "presentacion"]));
+  const activeIngredient = stringOrNull(
+    getRowValue(row, ["active_ingredient", "activeIngredient", "droga_activa", "drogaActiva", "droga activa"])
+  );
+  const projectCode =
+    stringOrNull(getRowValue(row, ["project_code", "codigo proyecto", "project id"])) ??
+    (sourceWorkbook ? `PM-${slugify(sourceWorkbook.replace(/\.[^.]+$/, "")).toUpperCase()}` : null);
+  const inferredProjectName = [productName, presentation].filter(Boolean).join(" - ") || sourceWorkbook;
+  const projectName = stringOrNull(getRowValue(row, ["project_name", "nombre proyecto"])) ?? inferredProjectName;
 
   return {
     batchId,
@@ -36,8 +46,10 @@ export function mapPmImportRow({
     projectCode,
     projectName,
     productReference: stringOrNull(getRowValue(row, ["product_code", "product_reference", "codigo producto"])),
-    productName: stringOrNull(getRowValue(row, ["product_name", "producto", "nombre producto"])),
-    presentation: stringOrNull(getRowValue(row, ["presentation", "presentacion"])),
+    productName,
+    presentation,
+    activeIngredient,
+    templateType: stringOrNull(getRowValue(row, ["template_type", "templateType", "tipo plantilla"])),
     businessUnit: inferBusinessUnit(businessUnitValue),
     macroStatus: stringOrNull(getRowValue(row, ["macro_status", "estado macro", "status"])),
     startDate: dateOrNull(getRowValue(row, ["start_date", "fecha inicio"])),

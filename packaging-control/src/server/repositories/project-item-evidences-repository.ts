@@ -1,6 +1,14 @@
-import { MatchConfidence, MatchingStatus } from "@prisma/client";
+import { MatchConfidence, MatchingStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+
+function normalizeRawData(rawData: Prisma.InputJsonValue | null | undefined) {
+  if (rawData === undefined) {
+    return undefined;
+  }
+
+  return rawData === null ? Prisma.JsonNull : rawData;
+}
 
 export const projectItemEvidencesRepository = {
   async upsert(params: {
@@ -13,7 +21,9 @@ export const projectItemEvidencesRepository = {
     isPrimary?: boolean;
     lastSeenAt?: Date | null;
     rawLabel?: string | null;
+    rawData?: Prisma.InputJsonValue | null;
   }) {
+    const rawData = normalizeRawData(params.rawData);
     const projectItem = await prisma.projectItem.findUnique({
       where: { id: params.projectItemId },
       select: { projectId: true }
@@ -63,7 +73,8 @@ export const projectItemEvidencesRepository = {
         matchStatus: params.matchStatus,
         isPrimary: params.isPrimary,
         lastSeenAt: params.lastSeenAt ?? new Date(),
-        rawLabel: params.rawLabel ?? null
+        rawLabel: params.rawLabel ?? null,
+        ...(rawData !== undefined ? { rawData } : {})
       },
       create: {
         projectItemId: params.projectItemId,
@@ -74,7 +85,8 @@ export const projectItemEvidencesRepository = {
         matchStatus: params.matchStatus,
         isPrimary: params.isPrimary,
         lastSeenAt: params.lastSeenAt ?? new Date(),
-        rawLabel: params.rawLabel ?? null
+        rawLabel: params.rawLabel ?? null,
+        ...(rawData !== undefined ? { rawData } : {})
       }
     });
   },

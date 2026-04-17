@@ -26,7 +26,7 @@ export const importService = {
           sourceFileName: payload.sourceFileName,
           sheetName: sheet.sheetName,
           row,
-          rowNumber: index + 2
+          rowNumber: index + 1
         })
       )
     );
