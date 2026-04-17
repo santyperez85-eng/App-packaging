@@ -66,13 +66,63 @@ export type DimensionEvaluation = {
   signals: string[];
 };
 
-const DIMENSION_WEIGHTS: Record<DimensionKey, number> = {
+type ComponentOperationalProfile = {
+  key: string;
+  dimensionWeights: Record<DimensionKey, number>;
+  alertPriorities: Partial<Record<string, number>>;
+};
+
+const DEFAULT_DIMENSION_WEIGHTS: Record<DimensionKey, number> = {
   definition: 0.15,
   codification: 0.2,
   pre_sap_structure: 0.15,
   sap_formalization: 0.15,
   internal_technical_docs: 0.15,
   documentation_review_approval: 0.2
+};
+
+const PRIMARY_PACKAGING_WEIGHTS: Record<DimensionKey, number> = {
+  definition: 0.04,
+  codification: 0.36,
+  pre_sap_structure: 0.32,
+  sap_formalization: 0.17,
+  internal_technical_docs: 0.08,
+  documentation_review_approval: 0.03
+};
+
+const PROSPECTO_WEIGHTS: Record<DimensionKey, number> = {
+  definition: 0.03,
+  codification: 0.08,
+  pre_sap_structure: 0.3,
+  sap_formalization: 0.06,
+  internal_technical_docs: 0.1,
+  documentation_review_approval: 0.43
+};
+
+const ESTUCHE_WEIGHTS: Record<DimensionKey, number> = {
+  definition: 0.2,
+  codification: 0.15,
+  pre_sap_structure: 0.1,
+  sap_formalization: 0.1,
+  internal_technical_docs: 0.1,
+  documentation_review_approval: 0.35
+};
+
+const DEFAULT_ALERT_PRIORITIES: Record<string, number> = {
+  CROSS_SOURCE_INCONSISTENCY: 100,
+  DEFINITION_AMBIGUOUS: 95,
+  BLOCKING_CHECKS_PENDING: 95,
+  PHASE_MISMATCH: 95,
+  REVIEW_OVERDUE: 95,
+  DESIGN_WITHOUT_REVIEW: 90,
+  INTERNAL_TECH_DOCS_MISSING: 75,
+  REQUEST_WITHOUT_FORMAL_MATERIAL: 70,
+  CODE_NOT_REQUESTED: 60,
+  PRE_BOM_MISSING: 55,
+  PRE_BOM_PENDING_CONFIRMATION: 50,
+  APPROVED_DOCUMENT_MISSING: 50,
+  DEFINITION_MISSING: 45,
+  EXPECTED_COMPONENT_MISSING: 30
 };
 
 const PENDING_CONFIRMATION_HINTS = [
@@ -94,6 +144,7 @@ function buildRuleAlert(params: {
   problemClass: ProblemClass;
   dimension: DimensionKey;
   status: DimensionStatus;
+  priority?: number;
 }) {
   return {
     ruleCode: params.ruleCode,
@@ -104,7 +155,8 @@ function buildRuleAlert(params: {
     metadata: {
       problemClass: params.problemClass,
       dimension: params.dimension,
-      dimensionStatus: params.status
+      dimensionStatus: params.status,
+      ...(params.priority !== undefined ? { priority: params.priority } : {})
     } satisfies Prisma.InputJsonObject
   } satisfies RuleAlertSeed;
 }
@@ -137,6 +189,105 @@ export function isExpectedProjectItem(item: ProjectItemRulesRecord) {
       item.expectedStatus === ProjectItemExpectedStatus.EXPECTED ||
       item.expectedStatus === ProjectItemExpectedStatus.EXPECTED_BUT_MISSING)
   );
+}
+
+export function getComponentOperationalProfile(componentSlot: ComponentSlot): ComponentOperationalProfile {
+  if (
+    componentSlot === ComponentSlot.BLISTER ||
+    componentSlot === ComponentSlot.ALUMINIO ||
+    componentSlot === ComponentSlot.FRASCO ||
+    componentSlot === ComponentSlot.POMO
+  ) {
+    return {
+      key: "primary_packaging",
+      dimensionWeights: PRIMARY_PACKAGING_WEIGHTS,
+      alertPriorities: {
+        CODE_NOT_REQUESTED: 85,
+        PRE_BOM_MISSING: 80,
+        REQUEST_WITHOUT_FORMAL_MATERIAL: 75,
+        INTERNAL_TECH_DOCS_MISSING: 75,
+        APPROVED_DOCUMENT_MISSING: 55,
+        EXPECTED_COMPONENT_MISSING: 30
+      }
+    };
+  }
+
+  if (componentSlot === ComponentSlot.PROSPECTO) {
+    return {
+      key: "leaflet_regulatory",
+      dimensionWeights: PROSPECTO_WEIGHTS,
+      alertPriorities: {
+        APPROVED_DOCUMENT_MISSING: 90,
+        CODE_NOT_REQUESTED: 50,
+        PRE_BOM_MISSING: 40,
+        REQUEST_WITHOUT_FORMAL_MATERIAL: 60,
+        EXPECTED_COMPONENT_MISSING: 30
+      }
+    };
+  }
+
+  if (componentSlot === ComponentSlot.ESTUCHE) {
+    return {
+      key: "secondary_packaging",
+      dimensionWeights: ESTUCHE_WEIGHTS,
+      alertPriorities: {
+        CODE_NOT_REQUESTED: 70,
+        APPROVED_DOCUMENT_MISSING: 65,
+        PRE_BOM_MISSING: 60,
+        REQUEST_WITHOUT_FORMAL_MATERIAL: 60,
+        EXPECTED_COMPONENT_MISSING: 30
+      }
+    };
+  }
+
+  return {
+    key: "default_packaging",
+    dimensionWeights: DEFAULT_DIMENSION_WEIGHTS,
+    alertPriorities: {}
+  };
+}
+
+export function getDimensionWeights(item: ProjectItemRulesRecord) {
+  return getComponentOperationalProfile(item.componentSlot).dimensionWeights;
+}
+
+function getAlertPriority(item: ProjectItemRulesRecord, ruleCode: string) {
+  const profile = getComponentOperationalProfile(item.componentSlot);
+
+  return profile.alertPriorities[ruleCode] ?? DEFAULT_ALERT_PRIORITIES[ruleCode] ?? 50;
+}
+
+function getApprovedDocumentMissingSeverity(item: ProjectItemRulesRecord) {
+  return item.componentSlot === ComponentSlot.PROSPECTO ? AlertSeverity.CRITICAL : AlertSeverity.WARNING;
+}
+
+function getAlertPriorityValue(alert: RuleAlertSeed) {
+  const priority = alert.metadata?.priority;
+
+  if (typeof priority === "number") {
+    return priority;
+  }
+
+  return DEFAULT_ALERT_PRIORITIES[alert.ruleCode] ?? 50;
+}
+
+function getGeneratedAlertPenalty(alert: RuleAlertSeed) {
+  const priority = getAlertPriorityValue(alert);
+
+  if (alert.severity === AlertSeverity.CRITICAL) {
+    if (priority >= 90) return 10;
+    if (priority >= 75) return 8;
+    return 6;
+  }
+
+  if (alert.severity === AlertSeverity.WARNING) {
+    if (priority >= 80) return 4;
+    if (priority >= 70) return 3;
+    if (priority >= 55) return 2;
+    return 1;
+  }
+
+  return priority >= 80 ? 1 : 0;
 }
 
 function parsePhaseToken(...values: Array<string | null | undefined>) {
@@ -187,7 +338,8 @@ function dimensionDefinition(item: ProjectItemRulesRecord): DimensionEvaluation 
           severity: AlertSeverity.CRITICAL,
           problemClass: "inconsistencia",
           dimension: "definition",
-          status: "inconsistent"
+          status: "inconsistent",
+          priority: getAlertPriority(item, "DEFINITION_AMBIGUOUS")
         })
       : null,
     inconsistentIdentification
@@ -199,7 +351,8 @@ function dimensionDefinition(item: ProjectItemRulesRecord): DimensionEvaluation 
           severity: AlertSeverity.CRITICAL,
           problemClass: "inconsistencia",
           dimension: "definition",
-          status: "inconsistent"
+          status: "inconsistent",
+          priority: getAlertPriority(item, "CROSS_SOURCE_INCONSISTENCY")
         })
       : null,
     item.matchingStatus !== MatchingStatus.AMBIGUOUS && (missingDefinition || item.matchingStatus === MatchingStatus.MANUAL_REVIEW)
@@ -211,7 +364,8 @@ function dimensionDefinition(item: ProjectItemRulesRecord): DimensionEvaluation 
           severity: AlertSeverity.WARNING,
           problemClass: "incompletitud",
           dimension: "definition",
-          status: "missing"
+          status: "missing",
+          priority: getAlertPriority(item, "DEFINITION_MISSING")
         })
       : null
   ]);
@@ -312,7 +466,8 @@ function dimensionCodification(item: ProjectItemRulesRecord): DimensionEvaluatio
         severity: AlertSeverity.WARNING,
         problemClass: "incompletitud",
         dimension: "codification",
-        status: "missing"
+        status: "missing",
+        priority: getAlertPriority(item, "CODE_NOT_REQUESTED")
       })
     ],
     signals: ["code_not_requested"]
@@ -360,7 +515,8 @@ function dimensionPreSapStructure(item: ProjectItemRulesRecord): DimensionEvalua
           severity: AlertSeverity.WARNING,
           problemClass: "incompletitud",
           dimension: "pre_sap_structure",
-          status: "partial"
+          status: "partial",
+          priority: getAlertPriority(item, "PRE_BOM_PENDING_CONFIRMATION")
         })
       ],
       signals: ["bom_pending_confirmation"]
@@ -381,7 +537,8 @@ function dimensionPreSapStructure(item: ProjectItemRulesRecord): DimensionEvalua
         severity: AlertSeverity.WARNING,
         problemClass: "incompletitud",
         dimension: "pre_sap_structure",
-        status: "missing"
+        status: "missing",
+        priority: getAlertPriority(item, "PRE_BOM_MISSING")
       })
     ],
     signals: ["bom_missing"]
@@ -419,7 +576,8 @@ function dimensionSapFormalization(item: ProjectItemRulesRecord): DimensionEvalu
           severity: AlertSeverity.CRITICAL,
           problemClass: "inconsistencia",
           dimension: "sap_formalization",
-          status: "inconsistent"
+          status: "inconsistent",
+          priority: getAlertPriority(item, "PHASE_MISMATCH")
         })
       ],
       signals: ["phase_mismatch"]
@@ -455,7 +613,8 @@ function dimensionSapFormalization(item: ProjectItemRulesRecord): DimensionEvalu
               severity: AlertSeverity.WARNING,
               problemClass: "incompletitud",
               dimension: "sap_formalization",
-              status: "partial"
+              status: "partial",
+              priority: getAlertPriority(item, "REQUEST_WITHOUT_FORMAL_MATERIAL")
             })
           ]
         : [],
@@ -528,7 +687,8 @@ function dimensionInternalTechnicalDocs(item: ProjectItemRulesRecord): Dimension
         severity: missingDocs.length > 1 ? AlertSeverity.CRITICAL : AlertSeverity.WARNING,
         problemClass: "incompletitud",
         dimension: "internal_technical_docs",
-        status: "partial"
+        status: "partial",
+        priority: getAlertPriority(item, "INTERNAL_TECH_DOCS_MISSING")
       })
     ],
     signals: missingDocs
@@ -588,7 +748,8 @@ function dimensionDocumentationApproval(item: ProjectItemRulesRecord, today: Dat
           severity: AlertSeverity.CRITICAL,
           problemClass: "bloqueo",
           dimension: "documentation_review_approval",
-          status: "blocked"
+          status: "blocked",
+          priority: getAlertPriority(item, "REVIEW_OVERDUE")
         })
       ],
       signals: ["review_overdue"]
@@ -610,17 +771,19 @@ function dimensionDocumentationApproval(item: ProjectItemRulesRecord, today: Dat
           severity: AlertSeverity.CRITICAL,
           problemClass: "bloqueo",
           dimension: "documentation_review_approval",
-          status: "blocked"
+          status: "blocked",
+          priority: getAlertPriority(item, "DESIGN_WITHOUT_REVIEW")
         }),
         buildRuleAlert({
           ruleCode: "APPROVED_DOCUMENT_MISSING",
           type: "APPROVED_DOCUMENT_MISSING",
           title: "Falta documento aprobado",
           message: `No existe documento aprobado para ${item.name}.`,
-          severity: AlertSeverity.WARNING,
+          severity: getApprovedDocumentMissingSeverity(item),
           problemClass: "incompletitud",
           dimension: "documentation_review_approval",
-          status: "partial"
+          status: "partial",
+          priority: getAlertPriority(item, "APPROVED_DOCUMENT_MISSING")
         })
       ],
       signals: ["review_missing"]
@@ -639,10 +802,11 @@ function dimensionDocumentationApproval(item: ProjectItemRulesRecord, today: Dat
           type: "APPROVED_DOCUMENT_MISSING",
           title: "Falta documento aprobado",
           message: `La revision documental de ${item.name} esta en curso, pero aun no existe version aprobada.`,
-          severity: AlertSeverity.WARNING,
+          severity: getApprovedDocumentMissingSeverity(item),
           problemClass: "incompletitud",
           dimension: "documentation_review_approval",
-          status: "partial"
+          status: "partial",
+          priority: getAlertPriority(item, "APPROVED_DOCUMENT_MISSING")
         })
       ],
       signals: ["review_in_progress"]
@@ -661,10 +825,11 @@ function dimensionDocumentationApproval(item: ProjectItemRulesRecord, today: Dat
           type: "APPROVED_DOCUMENT_MISSING",
           title: "Falta documento aprobado",
           message: `Existe actividad documental para ${item.name}, pero aun no hay documento aprobado.`,
-          severity: AlertSeverity.WARNING,
+          severity: getApprovedDocumentMissingSeverity(item),
           problemClass: "incompletitud",
           dimension: "documentation_review_approval",
-          status: "partial"
+          status: "partial",
+          priority: getAlertPriority(item, "APPROVED_DOCUMENT_MISSING")
         })
       ],
       signals: ["design_in_progress"]
@@ -682,10 +847,11 @@ function dimensionDocumentationApproval(item: ProjectItemRulesRecord, today: Dat
         type: "APPROVED_DOCUMENT_MISSING",
         title: "Falta documento aprobado",
         message: `No existe documentacion aprobada para ${item.name}.`,
-        severity: AlertSeverity.WARNING,
+        severity: getApprovedDocumentMissingSeverity(item),
         problemClass: "incompletitud",
         dimension: "documentation_review_approval",
-        status: "missing"
+        status: "missing",
+        priority: getAlertPriority(item, "APPROVED_DOCUMENT_MISSING")
       })
     ],
     signals: ["documentation_not_started"]
@@ -708,10 +874,11 @@ function buildOverlayAlerts(item: ProjectItemRulesRecord): RuleAlertSeed[] {
           type: "EXPECTED_COMPONENT_MISSING",
           title: "Componente esperado sin evidencia",
           message: `El componente esperado ${item.name} todavia no tiene evidencia operativa fuera de PM.`,
-          severity: AlertSeverity.WARNING,
+          severity: AlertSeverity.INFO,
           problemClass: "incompletitud",
           dimension: "definition",
-          status: "missing"
+          status: "missing",
+          priority: getAlertPriority(item, "EXPECTED_COMPONENT_MISSING")
         })
       : null,
     hasCodeConflict
@@ -723,7 +890,8 @@ function buildOverlayAlerts(item: ProjectItemRulesRecord): RuleAlertSeed[] {
           severity: AlertSeverity.CRITICAL,
           problemClass: "inconsistencia",
           dimension: "definition",
-          status: "inconsistent"
+          status: "inconsistent",
+          priority: getAlertPriority(item, "CROSS_SOURCE_INCONSISTENCY")
         })
       : null,
     blockingChecks.length
@@ -735,7 +903,8 @@ function buildOverlayAlerts(item: ProjectItemRulesRecord): RuleAlertSeed[] {
           severity: AlertSeverity.CRITICAL,
           problemClass: "bloqueo",
           dimension: "documentation_review_approval",
-          status: "blocked"
+          status: "blocked",
+          priority: getAlertPriority(item, "BLOCKING_CHECKS_PENDING")
         })
       : null
   ]);
@@ -830,14 +999,17 @@ export function evaluateProjectItemRules(
       (!alert.ruleCode || !generatedRuleCodes.includes(alert.ruleCode))
   ).length;
 
+  const dimensionWeights = getDimensionWeights(item);
   const weightedDimensionScore = dimensions.reduce(
-    (total, dimension) => total + dimension.score * DIMENSION_WEIGHTS[dimension.key],
+    (total, dimension) => total + dimension.score * dimensionWeights[dimension.key],
     0
   );
-  const generatedCriticalCount = activeAlerts.filter((alert) => alert.severity === AlertSeverity.CRITICAL).length;
-  const generatedWarningCount = activeAlerts.filter((alert) => alert.severity === AlertSeverity.WARNING).length;
+  const generatedAlertPenalty = activeAlerts.reduce(
+    (total, alert) => total + getGeneratedAlertPenalty(alert),
+    0
+  );
   const readinessScore = clampScore(
-    weightedDimensionScore - generatedCriticalCount * 4 - generatedWarningCount * 2 - manualCriticalCount * 8 - manualWarningCount * 4
+    weightedDimensionScore - generatedAlertPenalty - manualCriticalCount * 8 - manualWarningCount * 4
   );
 
   const status = determineProjectItemStatus({
