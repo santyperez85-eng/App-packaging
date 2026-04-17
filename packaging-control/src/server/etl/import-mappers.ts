@@ -18,6 +18,12 @@ type MapperContext = {
   rowNumber: number;
 };
 
+function nestedRawDataOrRow(row: Record<string, unknown>) {
+  return row.rawData && typeof row.rawData === "object" && !Array.isArray(row.rawData)
+    ? (row.rawData as Record<string, unknown>)
+    : row;
+}
+
 export function mapPmImportRow({
   batchId,
   sourceFileName,
@@ -54,7 +60,7 @@ export function mapPmImportRow({
     macroStatus: stringOrNull(getRowValue(row, ["macro_status", "estado macro", "status"])),
     startDate: dateOrNull(getRowValue(row, ["start_date", "fecha inicio"])),
     targetLaunchDate: dateOrNull(getRowValue(row, ["target_launch_date", "launch_date", "fecha lanzamiento"])),
-    rawData: JSON.parse(JSON.stringify(row)) as Prisma.InputJsonObject
+    rawData: JSON.parse(JSON.stringify(nestedRawDataOrRow(row))) as Prisma.InputJsonObject
   };
 }
 

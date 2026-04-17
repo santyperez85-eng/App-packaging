@@ -143,6 +143,19 @@ export const consolidationService = {
           row.businessUnit ??
           inferBusinessUnit(rawPmData.business_unit) ??
           BusinessUnit.PHARMA;
+        const activeIngredient =
+          row.activeIngredient ??
+          stringOrNull(
+            getRowValue(rawPmData, [
+              "active_ingredient",
+              "activeIngredient",
+              "droga_activa",
+              "drogaActiva",
+              "droga activa",
+              "principio activo",
+              "ingrediente activo"
+            ])
+          );
         const productReference =
           row.productReference ?? `PROD-${slugify(`${row.productName ?? "producto"}-${row.presentation ?? ""}`).toUpperCase()}`;
         const product = await prisma.product.upsert({
@@ -170,10 +183,7 @@ export const consolidationService = {
           changeDriver:
             String(getRowValue(rawPmData, ["change_driver", "motivo cambio", "driver"]) ?? "").trim() || null,
           presentation: row.presentation,
-          activeIngredient:
-            String(
-              getRowValue(rawPmData, ["active_ingredient", "principio activo", "ingrediente activo"]) ?? ""
-            ).trim() || null,
+          activeIngredient,
           sapFinishedCode:
             String(
               getRowValue(rawPmData, ["sap_finished_code", "finished_code", "codigo sap pt", "codigo terminado"]) ?? ""

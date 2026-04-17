@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "tsc --noEmit",
     "validate:functional": "node --import tsx ./src/server/validation/run-functional-validation.ts",
+    "validate:pm-only": "node --import tsx ./src/server/validation/run-pm-only-consolidation.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
