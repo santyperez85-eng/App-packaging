@@ -60,11 +60,17 @@ function getExplicitMaterialRequestComponentSlot(row: Record<string, unknown>) {
 }
 
 function materialRequestRawData(row: Record<string, unknown>) {
+  const rawData = nestedRawDataOrRow(row);
   const explicitComponentSlot = getExplicitMaterialRequestComponentSlot(row);
 
   return {
-    ...row,
+    ...rawData,
     sourceNormalization: {
+      ...(rawData.sourceNormalization &&
+      typeof rawData.sourceNormalization === "object" &&
+      !Array.isArray(rawData.sourceNormalization)
+        ? rawData.sourceNormalization
+        : {}),
       ...(explicitComponentSlot
         ? {
             explicitComponentSlot: explicitComponentSlot.componentSlot,

@@ -10,6 +10,7 @@
     "validate:functional": "node --import tsx ./src/server/validation/run-functional-validation.ts",
     "validate:pm-only": "node --import tsx ./src/server/validation/run-pm-only-consolidation.ts",
     "validate:pm-plus-altas": "node --import tsx ./src/server/validation/run-pm-material-requests-consolidation.ts",
+    "validate:alta-mat-real": "node --import tsx ./src/server/validation/run-alta-mat-real-validation.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",

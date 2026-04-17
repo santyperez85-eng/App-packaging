@@ -107,6 +107,14 @@ function parseMaterialRequestStatus(value: string | null | undefined) {
     return MaterialRequestStatus.COMPLETED;
   }
 
+  if (normalizedText === "ok" || normalizedText === "ok revisar") {
+    return MaterialRequestStatus.COMPLETED;
+  }
+
+  if (normalizedText === "sin dar de alta") {
+    return MaterialRequestStatus.REQUESTED;
+  }
+
   if (isIgnoredMaterialRequestStatus(value)) {
     return MaterialRequestStatus.CANCELLED;
   }
@@ -190,6 +198,22 @@ function componentSlotFromNotes(notes: unknown) {
   return null;
 }
 
+function parseMaterialRequestNotes(notes: unknown) {
+  const noteValue = stringOrNull(notes);
+
+  if (!noteValue) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(noteValue) as unknown;
+
+    return getRawObject(parsed);
+  } catch {
+    return {};
+  }
+}
+
 function explicitComponentSlotFromMaterialRequest(rawData: unknown, materialType?: string | null) {
   const rawObject = getRawObject(rawData);
   const normalization = getNestedObject(rawData, "sourceNormalization");
@@ -227,6 +251,52 @@ function explicitComponentSlotFromMaterialRequest(rawData: unknown, materialType
   return parseComponentSlotValue(materialType);
 }
 
+function materialRequestSourceRecordKey(params: {
+  rawData?: unknown;
+  requestCode?: string | null;
+  rowNumber?: number | null;
+}) {
+  const rawObject = getRawObject(params.rawData);
+  const altaMat = getNestedObject(params.rawData, "altaMat");
+
+  return (
+    stringOrNull(rawObject.sourceRecordKey) ??
+    stringOrNull(altaMat.sourceRecordKey) ??
+    params.requestCode ??
+    String(params.rowNumber ?? "sin-fila")
+  );
+}
+
+function buildMaterialRequestNotes(rawData: unknown, componentSlot: ComponentSlot | null) {
+  const rawObject = getRawObject(rawData);
+  const altaMat = getNestedObject(rawData, "altaMat");
+
+  if (!componentSlot && Object.keys(altaMat).length === 0 && !rawObject.sourceRecordKey) {
+    return null;
+  }
+
+  return JSON.stringify({
+    ...(componentSlot ? { sourceComponentSlot: componentSlot } : {}),
+    ...(rawObject.sourceRecordKey ? { sourceRecordKey: rawObject.sourceRecordKey } : {}),
+    ...(Object.keys(altaMat).length
+      ? {
+          sourceAdapter: "alta_mat",
+          altaMatDomain: altaMat.domain ?? null,
+          evidenceRole: altaMat.evidenceRole ?? null,
+          contextMatch: altaMat.contextMatch ?? null,
+          matchOnlyExpectedPmItems: altaMat.matchOnlyExpectedPmItems === true,
+          shouldCreateProjectItem: altaMat.shouldCreateProjectItem === false ? false : undefined,
+          classificationReason: altaMat.classificationReason ?? null,
+          codeQuality: altaMat.codeQuality ?? null
+        }
+      : {})
+  });
+}
+
+function shouldMatchOnlyExpectedPmItems(notes: Record<string, unknown>) {
+  return notes.matchOnlyExpectedPmItems === true || notes.shouldCreateProjectItem === false;
+}
+
 function buildMaterialRequestEvidenceRawData(params: {
   requestId: string;
   sourceExternalId?: string | null;
@@ -234,6 +304,7 @@ function buildMaterialRequestEvidenceRawData(params: {
   requestStatus: MaterialRequestStatus;
   linkedMaterialCode?: string | null;
   componentSlot: ComponentSlot;
+  notes?: Record<string, unknown>;
 }) {
   return {
     sourceType: "material_request",
@@ -242,7 +313,13 @@ function buildMaterialRequestEvidenceRawData(params: {
     requestCode: params.requestCode ?? null,
     requestStatus: params.requestStatus,
     linkedMaterialCode: params.linkedMaterialCode ?? null,
-    explicitComponentSlot: params.componentSlot
+    explicitComponentSlot: params.componentSlot,
+    ...(params.notes?.sourceAdapter ? { sourceAdapter: params.notes.sourceAdapter } : {}),
+    ...(params.notes?.altaMatDomain ? { altaMatDomain: params.notes.altaMatDomain } : {}),
+    ...(params.notes?.evidenceRole ? { evidenceRole: params.notes.evidenceRole } : {}),
+    ...(params.notes?.contextMatch ? { contextMatch: params.notes.contextMatch } : {}),
+    ...(params.notes?.classificationReason ? { classificationReason: params.notes.classificationReason } : {}),
+    ...(params.notes?.codeQuality ? { codeQuality: params.notes.codeQuality } : {})
   } satisfies Prisma.InputJsonObject;
 }
 
@@ -374,7 +451,11 @@ export const consolidationService = {
           continue;
         }
 
-        const sourceRecordKey = row.requestCode ?? String(row.rowNumber);
+        const sourceRecordKey = materialRequestSourceRecordKey({
+          rawData: row.rawData,
+          requestCode: row.requestCode,
+          rowNumber: row.rowNumber
+        });
         const project = await resolveProjectFromImportSource({
           sourceType: "material_request",
           sourceRecordKey,
@@ -390,9 +471,10 @@ export const consolidationService = {
           ? await materialsMasterRepository.findByCode(row.linkedMaterialCode)
           : null;
         const explicitComponentSlot = explicitComponentSlotFromMaterialRequest(row.rawData, row.materialType);
+        const notes = buildMaterialRequestNotes(row.rawData, explicitComponentSlot);
 
         await materialRequestsRepository.upsert({
-          sourceExternalId: `${project.code}-${row.requestCode ?? row.rowNumber}`,
+          sourceExternalId: `${project.code}-${sourceRecordKey}`,
           projectId: project.id,
           requestCode: row.requestCode,
           requestDate: row.requestDate,
@@ -404,7 +486,7 @@ export const consolidationService = {
           requestStatus: parseMaterialRequestStatus(row.requestStatus),
           linkedMaterialCode: row.linkedMaterialCode,
           linkedMaterialId: linkedMaterial?.id,
-          notes: explicitComponentSlot ? JSON.stringify({ sourceComponentSlot: explicitComponentSlot }) : null
+          notes
         });
 
         await importsRepository.markMaterialRequestRowProcessed(row.id);
@@ -617,6 +699,7 @@ export const consolidationService = {
       }
 
       for (const request of project.materialRequests) {
+        const requestNotes = parseMaterialRequestNotes(request.notes);
         const linkedMaterial =
           request.linkedMaterialId
             ? await prisma.materialsMaster.findUnique({
@@ -646,6 +729,13 @@ export const consolidationService = {
           componentSlot,
           originMode: ProjectItemOriginMode.REQUEST_DETECTED
         });
+
+        if (
+          shouldMatchOnlyExpectedPmItems(requestNotes) &&
+          (!resolution.matchedProjectItemId || resolution.originMode !== ProjectItemOriginMode.PM_EXPECTED)
+        ) {
+          continue;
+        }
 
         if (!resolution.matchedProjectItemId && resolution.matchingStatus === MatchingStatus.MANUAL_REVIEW) {
           continue;
@@ -688,7 +778,8 @@ export const consolidationService = {
             requestCode: request.requestCode,
             requestStatus: request.requestStatus,
             linkedMaterialCode: request.linkedMaterialCode,
-            componentSlot
+            componentSlot,
+            notes: requestNotes
           })
         });
         summary.evidencesUpserted += 1;
