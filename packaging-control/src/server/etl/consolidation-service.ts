@@ -214,6 +214,22 @@ function parseMaterialRequestNotes(notes: unknown) {
   }
 }
 
+function parseBomNotes(notes: unknown) {
+  const noteValue = stringOrNull(notes);
+
+  if (!noteValue) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(noteValue) as unknown;
+
+    return getRawObject(parsed);
+  } catch {
+    return {};
+  }
+}
+
 function explicitComponentSlotFromMaterialRequest(rawData: unknown, materialType?: string | null) {
   const rawObject = getRawObject(rawData);
   const normalization = getNestedObject(rawData, "sourceNormalization");
@@ -251,6 +267,48 @@ function explicitComponentSlotFromMaterialRequest(rawData: unknown, materialType
   return parseComponentSlotValue(materialType);
 }
 
+function explicitComponentSlotFromBom(rawData: unknown, componentType?: string | null, componentName?: string | null) {
+  const rawObject = getRawObject(rawData);
+  const normalization = getNestedObject(rawData, "sourceNormalization");
+  const normalizedSlot = parseComponentSlotValue(normalization.explicitComponentSlot);
+
+  if (normalizedSlot) {
+    return normalizedSlot;
+  }
+
+  const directSlot = parseComponentSlotValue(rawObject.sourceComponentSlot);
+
+  if (directSlot) {
+    return directSlot;
+  }
+
+  const rawSlot = parseComponentSlotValue(
+    getRowValue(rawObject, [
+      "component_slot",
+      "componentSlot",
+      "slot",
+      "component",
+      "componente",
+      "tipo componente",
+      "tipo_componente",
+      "componente packaging",
+      "componente_packaging"
+    ])
+  );
+
+  if (rawSlot) {
+    return rawSlot;
+  }
+
+  const notesSlot = componentSlotFromNotes(rawObject.notes);
+
+  if (notesSlot) {
+    return notesSlot;
+  }
+
+  return parseComponentSlotValue(componentType ?? componentName);
+}
+
 function materialRequestSourceRecordKey(params: {
   rawData?: unknown;
   requestCode?: string | null;
@@ -263,6 +321,22 @@ function materialRequestSourceRecordKey(params: {
     stringOrNull(rawObject.sourceRecordKey) ??
     stringOrNull(altaMat.sourceRecordKey) ??
     params.requestCode ??
+    String(params.rowNumber ?? "sin-fila")
+  );
+}
+
+function bomSourceRecordKey(params: {
+  rawData?: unknown;
+  componentKey?: string | null;
+  rowNumber?: number | null;
+}) {
+  const rawObject = getRawObject(params.rawData);
+  const recetasBom = getNestedObject(params.rawData, "recetasBom");
+
+  return (
+    stringOrNull(rawObject.sourceRecordKey) ??
+    stringOrNull(recetasBom.sourceRecordKey) ??
+    params.componentKey ??
     String(params.rowNumber ?? "sin-fila")
   );
 }
@@ -293,8 +367,61 @@ function buildMaterialRequestNotes(rawData: unknown, componentSlot: ComponentSlo
   });
 }
 
+function buildBomNotes(rawData: unknown, componentSlot: ComponentSlot | null) {
+  const rawObject = getRawObject(rawData);
+  const recetasBom = getNestedObject(rawData, "recetasBom");
+
+  if (!componentSlot && Object.keys(recetasBom).length === 0 && !rawObject.sourceRecordKey) {
+    return null;
+  }
+
+  return JSON.stringify({
+    ...(componentSlot ? { sourceComponentSlot: componentSlot } : {}),
+    ...(rawObject.sourceRecordKey ? { sourceRecordKey: rawObject.sourceRecordKey } : {}),
+    ...(Object.keys(recetasBom).length
+      ? {
+          sourceAdapter: recetasBom.sourceAdapter ?? null,
+          blockType: recetasBom.blockType ?? null,
+          contextMatch: recetasBom.contextMatch ?? null,
+          evidenceRole: recetasBom.evidenceRole ?? null,
+          matchOnlyExpectedPmItems: recetasBom.matchOnlyExpectedPmItems === true,
+          shouldCreateProjectItem: recetasBom.shouldCreateProjectItem === false ? false : undefined,
+          classificationReason: recetasBom.classificationReason ?? null,
+          pendingConfirmation: recetasBom.pendingConfirmation === true,
+          relatedRowNumbers: Array.isArray(recetasBom.relatedRowNumbers) ? recetasBom.relatedRowNumbers : undefined,
+          subcomponents: Array.isArray(recetasBom.subcomponents) ? recetasBom.subcomponents : undefined,
+          contextNotes: Array.isArray(recetasBom.contextNotes) ? recetasBom.contextNotes : undefined
+        }
+      : {})
+  });
+}
+
 function shouldMatchOnlyExpectedPmItems(notes: Record<string, unknown>) {
   return notes.matchOnlyExpectedPmItems === true || notes.shouldCreateProjectItem === false;
+}
+
+function buildBomEvidenceRawData(params: {
+  bomItemId: string;
+  componentKey: string;
+  componentSlot: ComponentSlot;
+  expectedMaterialCode?: string | null;
+  notes?: Record<string, unknown>;
+}) {
+  return {
+    sourceType: "bom",
+    bomItemId: params.bomItemId,
+    componentKey: params.componentKey,
+    explicitComponentSlot: params.componentSlot,
+    expectedMaterialCode: params.expectedMaterialCode ?? null,
+    ...(params.notes?.sourceAdapter ? { sourceAdapter: params.notes.sourceAdapter } : {}),
+    ...(params.notes?.evidenceRole ? { evidenceRole: params.notes.evidenceRole } : {}),
+    ...(params.notes?.contextMatch ? { contextMatch: params.notes.contextMatch } : {}),
+    ...(params.notes?.classificationReason ? { classificationReason: params.notes.classificationReason } : {}),
+    ...(params.notes?.pendingConfirmation === true ? { pendingConfirmation: true } : {}),
+    ...(Array.isArray(params.notes?.relatedRowNumbers) ? { relatedRowNumbers: params.notes.relatedRowNumbers } : {}),
+    ...(Array.isArray(params.notes?.subcomponents) ? { subcomponents: params.notes.subcomponents } : {}),
+    ...(Array.isArray(params.notes?.contextNotes) ? { contextNotes: params.notes.contextNotes } : {})
+  } satisfies Prisma.InputJsonObject;
 }
 
 function buildMaterialRequestEvidenceRawData(params: {
@@ -503,7 +630,11 @@ export const consolidationService = {
 
     for (const row of pendingBomRows) {
       try {
-        const sourceRecordKey = row.componentKey ?? String(row.rowNumber);
+        const sourceRecordKey = bomSourceRecordKey({
+          rawData: row.rawData,
+          componentKey: row.componentKey,
+          rowNumber: row.rowNumber
+        });
         const project = await resolveProjectFromImportSource({
           sourceType: "bom",
           sourceRecordKey,
@@ -515,6 +646,13 @@ export const consolidationService = {
           throw new Error("Project or componentName not found");
         }
 
+        const explicitComponentSlot = explicitComponentSlotFromBom(
+          row.rawData,
+          row.componentType,
+          row.componentName
+        );
+        const notes = buildBomNotes(row.rawData, explicitComponentSlot);
+
         await bomItemsRepository.upsert({
           projectId: project.id,
           componentKey: row.componentKey ?? slugify(row.componentName).toUpperCase(),
@@ -524,7 +662,8 @@ export const consolidationService = {
           unit: row.unit,
           isPackaging: row.isPackaging ?? true,
           isCritical: true,
-          expectedMaterialCode: row.expectedMaterialCode
+          expectedMaterialCode: row.expectedMaterialCode,
+          notes
         });
 
         await importsRepository.markBomRowProcessed(row.id);
@@ -619,6 +758,7 @@ export const consolidationService = {
       }
 
       for (const bomItem of project.bomItems) {
+        const bomNotes = parseBomNotes(bomItem.notes);
         const material = bomItem.expectedMaterialCode
           ? await materialsMasterRepository.findByCode(bomItem.expectedMaterialCode)
           : null;
@@ -627,6 +767,12 @@ export const consolidationService = {
           linkedMaterialCode: bomItem.expectedMaterialCode,
           requestedDescription: bomItem.componentName
         });
+        const explicitComponentSlot = explicitComponentSlotFromBom(
+          bomNotes,
+          bomItem.componentType,
+          bomItem.componentName
+        );
+        const componentSlot = explicitComponentSlot ?? inferComponentSlot(bomItem.componentName);
         const resolution = await resolveProjectItemMatch({
           sourceType: "bom",
           sourceRecordKey: bomItem.componentKey,
@@ -639,9 +785,20 @@ export const consolidationService = {
           provisionalCode: request?.requestCode ?? null,
           rawLabel: bomItem.componentName,
           description: bomItem.componentName,
-          componentSlot: inferComponentSlot(bomItem.componentName),
+          componentSlot,
           originMode: ProjectItemOriginMode.BOM_DETECTED
         });
+
+        if (
+          shouldMatchOnlyExpectedPmItems(bomNotes) &&
+          (!resolution.matchedProjectItemId || resolution.originMode !== ProjectItemOriginMode.PM_EXPECTED)
+        ) {
+          continue;
+        }
+
+        if (!resolution.matchedProjectItemId && resolution.matchingStatus === MatchingStatus.MANUAL_REVIEW) {
+          continue;
+        }
 
         const item = await projectItemsRepository.upsert({
           projectId: project.id,
@@ -675,7 +832,14 @@ export const consolidationService = {
           matchConfidence: resolution.matchConfidence,
           matchStatus: resolution.evidenceMatchStatus,
           isPrimary: true,
-          rawLabel: bomItem.componentName
+          rawLabel: bomItem.componentName,
+          rawData: buildBomEvidenceRawData({
+            bomItemId: bomItem.id,
+            componentKey: bomItem.componentKey,
+            componentSlot,
+            expectedMaterialCode: bomItem.expectedMaterialCode,
+            notes: bomNotes
+          })
         });
         summary.evidencesUpserted += 1;
 

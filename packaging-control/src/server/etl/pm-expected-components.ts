@@ -149,10 +149,10 @@ const TARGET_MATRIX_SLOTS = [
 ];
 
 const MATRIX_SLOT_TERMS: Record<ComponentSlot, string[]> = {
-  [ComponentSlot.ESTUCHE]: ["estuche", "caja"],
-  [ComponentSlot.PROSPECTO]: ["prospecto", "info paciente", "informacion paciente", "leaflet"],
+  [ComponentSlot.ESTUCHE]: ["estuche", "est."],
+  [ComponentSlot.PROSPECTO]: ["prospecto", "prosp.", "info paciente", "informacion paciente", "leaflet"],
   [ComponentSlot.BLISTER]: ["blister"],
-  [ComponentSlot.FRASCO]: ["frasco"],
+  [ComponentSlot.FRASCO]: ["frasco", "fco."],
   [ComponentSlot.ALUMINIO]: ["aluminio", "foil", "alu"],
   [ComponentSlot.POMO]: ["pomo", "tubo"],
   [ComponentSlot.ETIQUETA]: [],

@@ -144,19 +144,19 @@ export function inferComponentSlot(value: unknown): ComponentSlot {
     return ComponentSlot.CALENDARIO;
   }
 
-  if (normalized.includes("estuche") || normalized.includes("box")) {
+  if (normalized.includes("estuche") || /\best\./.test(normalized)) {
     return ComponentSlot.ESTUCHE;
   }
 
-  if (normalized.includes("prospecto") || normalized.includes("leaflet")) {
+  if (normalized.includes("prospecto") || normalized.includes("leaflet") || /\bprosp\./.test(normalized)) {
     return ComponentSlot.PROSPECTO;
   }
 
-  if (normalized.includes("etiqueta") || normalized.includes("label")) {
+  if (normalized.includes("etiqueta") || normalized.includes("label") || /\betiq\./.test(normalized)) {
     return ComponentSlot.ETIQUETA;
   }
 
-  if (normalized.includes("frasco") || normalized.includes("bottle")) {
+  if (normalized.includes("frasco") || normalized.includes("bottle") || /\bfco\./.test(normalized)) {
     return ComponentSlot.FRASCO;
   }
 

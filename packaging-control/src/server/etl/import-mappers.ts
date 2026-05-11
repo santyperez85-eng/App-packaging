@@ -40,8 +40,39 @@ const MATERIAL_REQUEST_COMPONENT_SLOT_CANDIDATES = [
   "tipo material"
 ];
 
+const BOM_COMPONENT_SLOT_CANDIDATES = [
+  "component_slot",
+  "componentSlot",
+  "slot",
+  "component",
+  "componente",
+  "tipo componente",
+  "tipo_componente",
+  "componente packaging",
+  "componente_packaging"
+];
+
 function getExplicitMaterialRequestComponentSlot(row: Record<string, unknown>) {
   const sourceValue = stringOrNull(getRowValue(row, MATERIAL_REQUEST_COMPONENT_SLOT_CANDIDATES));
+
+  if (!sourceValue) {
+    return null;
+  }
+
+  const componentSlot = inferComponentSlot(sourceValue);
+
+  if (componentSlot === ComponentSlot.OTRO) {
+    return null;
+  }
+
+  return {
+    sourceValue,
+    componentSlot
+  };
+}
+
+function getExplicitBomComponentSlot(row: Record<string, unknown>) {
+  const sourceValue = stringOrNull(getRowValue(row, BOM_COMPONENT_SLOT_CANDIDATES));
 
   if (!sourceValue) {
     return null;
@@ -62,6 +93,28 @@ function getExplicitMaterialRequestComponentSlot(row: Record<string, unknown>) {
 function materialRequestRawData(row: Record<string, unknown>) {
   const rawData = nestedRawDataOrRow(row);
   const explicitComponentSlot = getExplicitMaterialRequestComponentSlot(row);
+
+  return {
+    ...rawData,
+    sourceNormalization: {
+      ...(rawData.sourceNormalization &&
+      typeof rawData.sourceNormalization === "object" &&
+      !Array.isArray(rawData.sourceNormalization)
+        ? rawData.sourceNormalization
+        : {}),
+      ...(explicitComponentSlot
+        ? {
+            explicitComponentSlot: explicitComponentSlot.componentSlot,
+            explicitComponentSlotSourceValue: explicitComponentSlot.sourceValue
+          }
+        : {})
+    }
+  };
+}
+
+function bomRawData(row: Record<string, unknown>) {
+  const rawData = nestedRawDataOrRow(row);
+  const explicitComponentSlot = getExplicitBomComponentSlot(row);
 
   return {
     ...rawData,
@@ -159,14 +212,16 @@ export function mapBomImportRow({
     sheetName,
     rowNumber,
     projectCode: stringOrNull(getRowValue(row, ["project_code", "codigo proyecto"])),
-    componentKey: stringOrNull(getRowValue(row, ["component_key", "componente", "component code"])),
+    componentKey: stringOrNull(
+      getRowValue(row, ["component_key", "componente", "component code", "source_record_key", "sourceRecordKey"])
+    ),
     componentName: stringOrNull(getRowValue(row, ["component_name", "descripcion componente", "component description"])),
     componentType: stringOrNull(getRowValue(row, ["component_type", "tipo componente"])),
     quantity: numberOrNull(getRowValue(row, ["quantity", "cantidad"])),
     unit: stringOrNull(getRowValue(row, ["unit", "unidad"])),
     isPackaging: booleanOrNull(getRowValue(row, ["is_packaging", "packaging", "es packaging"])),
     expectedMaterialCode: stringOrNull(getRowValue(row, ["expected_material_code", "material_code", "codigo material"])),
-    rawData: JSON.parse(JSON.stringify(row)) as Prisma.InputJsonObject
+    rawData: JSON.parse(JSON.stringify(bomRawData(row))) as Prisma.InputJsonObject
   };
 }
 
