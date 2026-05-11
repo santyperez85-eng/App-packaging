@@ -154,6 +154,7 @@ function isPackagingSubcomponentRow(row: PhysicalRow) {
 
 function detectPackagingSlot(row: PhysicalRow) {
   const description = normalizeToken(row.description);
+  const tokens = description.split(/\s+/).filter(Boolean);
 
   if (!description) {
     return null;
@@ -163,7 +164,7 @@ function detectPackagingSlot(row: PhysicalRow) {
     return ComponentSlot.FRASCO;
   }
 
-  if (description.includes("estuche") || description.includes("est")) {
+  if (description.includes("estuche") || tokens.includes("est")) {
     return ComponentSlot.ESTUCHE;
   }
 
@@ -247,7 +248,19 @@ function buildNormalizedBomRow(params: {
   sheetName: string;
   candidate: BomCandidate;
 }) {
-  const sourceRecordKey = `recetas:${slugify(params.projectToken)}:${params.candidate.componentSlot.toLowerCase()}:row-${params.candidate.primaryRowNumber}`;
+  const rootKey =
+    slugify(params.candidate.block.rootDescription) ||
+    slugify(params.candidate.block.rootRow?.code) ||
+    `row-${params.candidate.block.startRow}`;
+  const componentSourceKey = slugify(params.candidate.componentName) || `row-${params.candidate.primaryRowNumber}`;
+  const sourceRecordKey = [
+    "recetas",
+    slugify(params.sheetName),
+    slugify(params.projectToken),
+    `root-${rootKey}`,
+    params.candidate.componentSlot.toLowerCase(),
+    `component-${componentSourceKey}`
+  ].join(":");
   const componentKey = `RECETAS-${slugify(params.projectToken)}-${params.candidate.componentSlot}`.toUpperCase();
 
   return {

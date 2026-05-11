@@ -278,7 +278,14 @@ async function main() {
   const finalItem = finalSnapshot.items[0];
   const baselineAlertCodes = new Set((baselineItem?.openAlerts ?? []).map((alert) => alert.ruleCode));
   const finalAlertCodes = new Set((finalItem?.openAlerts ?? []).map((alert) => alert.ruleCode));
-  const hasBomEvidence = finalItem?.evidences.some((evidence) => evidence.sourceType === "bom") ?? false;
+  const bomEvidence = finalItem?.evidences.find((evidence) => evidence.sourceType === "bom") ?? null;
+  const hasBomEvidence = Boolean(bomEvidence);
+  const bomEvidenceRawData =
+    bomEvidence?.rawData && typeof bomEvidence.rawData === "object" && !Array.isArray(bomEvidence.rawData)
+      ? (bomEvidence.rawData as Record<string, unknown>)
+      : {};
+  const expectedBomSourceRecordKey =
+    "recetas:recetas:perpiel-heridas-jabon:root-perpiel-heridas-jabon-x-250-ml-v:frasco:component-fco-perpiel-heridas-jabon-x-250-ml-etiq";
 
   if (
     pmPayload.sheets[0]?.sheetName !== "Venta Libre-FARMA" ||
@@ -288,8 +295,11 @@ async function main() {
     baseline.items.length !== 1 ||
     baselineItem?.componentSlot !== "FRASCO" ||
     finalSnapshot.counts.projectItems !== 1 ||
+    finalItem?.componentSlot !== "FRASCO" ||
     finalSnapshot.items.some((item) => item.componentSlot === "ESTUCHE") ||
     !hasBomEvidence ||
+    bomEvidence?.sourceRecordKey !== expectedBomSourceRecordKey ||
+    bomEvidenceRawData.sourceRecordKey !== expectedBomSourceRecordKey ||
     !baselineAlertCodes.has("PRE_BOM_MISSING") ||
     finalAlertCodes.has("PRE_BOM_MISSING") ||
     finalSnapshot.project.healthScore <= baseline.project.healthScore

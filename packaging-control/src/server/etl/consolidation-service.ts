@@ -403,6 +403,7 @@ function shouldMatchOnlyExpectedPmItems(notes: Record<string, unknown>) {
 function buildBomEvidenceRawData(params: {
   bomItemId: string;
   componentKey: string;
+  sourceRecordKey: string;
   componentSlot: ComponentSlot;
   expectedMaterialCode?: string | null;
   notes?: Record<string, unknown>;
@@ -411,6 +412,7 @@ function buildBomEvidenceRawData(params: {
     sourceType: "bom",
     bomItemId: params.bomItemId,
     componentKey: params.componentKey,
+    sourceRecordKey: params.sourceRecordKey,
     explicitComponentSlot: params.componentSlot,
     expectedMaterialCode: params.expectedMaterialCode ?? null,
     ...(params.notes?.sourceAdapter ? { sourceAdapter: params.notes.sourceAdapter } : {}),
@@ -773,6 +775,7 @@ export const consolidationService = {
           bomItem.componentName
         );
         const componentSlot = explicitComponentSlot ?? inferComponentSlot(bomItem.componentName);
+        const evidenceSourceRecordKey = stringOrNull(bomNotes.sourceRecordKey) ?? bomItem.componentKey;
         const resolution = await resolveProjectItemMatch({
           sourceType: "bom",
           sourceRecordKey: bomItem.componentKey,
@@ -827,7 +830,7 @@ export const consolidationService = {
         await projectItemEvidencesRepository.upsert({
           projectItemId: item.id,
           sourceType: "bom",
-          sourceRecordKey: bomItem.componentKey,
+          sourceRecordKey: evidenceSourceRecordKey,
           matchRule: resolution.matchRule,
           matchConfidence: resolution.matchConfidence,
           matchStatus: resolution.evidenceMatchStatus,
@@ -836,6 +839,7 @@ export const consolidationService = {
           rawData: buildBomEvidenceRawData({
             bomItemId: bomItem.id,
             componentKey: bomItem.componentKey,
+            sourceRecordKey: evidenceSourceRecordKey,
             componentSlot,
             expectedMaterialCode: bomItem.expectedMaterialCode,
             notes: bomNotes
