@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contexto Proyecto Packaging Control</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --surface: #171a21;
+      --surface-2: #20242d;
+      --text: #f3f1ec;
+      --muted: #a7adb8;
+      --accent: #d4521a;
+      --ok: #55c27a;
+      --warn: #e2b84b;
+      --critical: #ef6b6b;
+      --info: #6ba8ef;
+      --border: rgba(255,255,255,.12);
+      --code: #10131a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top left, rgba(212,82,26,.18), transparent 32rem), var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    .page { max-width: 1180px; margin: 0 auto; padding: 48px 28px 72px; }
+    header { border-bottom: 1px solid var(--border); padding-bottom: 32px; margin-bottom: 36px; }
+    .eyebrow { color: var(--accent); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: 12px; margin-bottom: 12px; }
+    h1 { margin: 0 0 16px; font-size: clamp(36px, 6vw, 72px); line-height: 1.02; letter-spacing: -.04em; }
+    h2 { font-size: 28px; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); letter-spacing: -.02em; }
+    h3 { font-size: 20px; margin: 28px 0 10px; color: #fff; }
+    h4 { font-size: 16px; margin: 22px 0 8px; color: var(--accent); }
+    p { margin: 0 0 14px; }
+    a { color: var(--accent); }
+    .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 24px; }
+    .meta-card, .card { background: rgba(255,255,255,.045); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    .meta-card strong { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 4px; }
+    .section-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 16px 0; }
+    ul, ol { margin: 10px 0 16px 22px; padding: 0; }
+    li { margin-bottom: 6px; }
+    code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: 13px; }
+    pre { background: var(--code); border: 1px solid var(--border); padding: 14px; border-radius: 10px; overflow-x: auto; white-space: pre-wrap; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0 22px; font-size: 14px; }
+    th, td { border: 1px solid var(--border); padding: 10px 12px; vertical-align: top; }
+    th { background: var(--surface-2); text-align: left; color: #fff; }
+    td { background: rgba(255,255,255,.025); }
+    .tag { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid var(--border); margin: 2px 4px 2px 0; white-space: nowrap; }
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    .critical { color: var(--critical); }
+    .info { color: var(--info); }
+    .accent { color: var(--accent); }
+    .status-list { list-style: none; margin-left: 0; }
+    .status-list li::before { content: "✓"; color: var(--ok); font-weight: 800; margin-right: 8px; }
+    .pending li::before { content: "→"; color: var(--warn); font-weight: 800; margin-right: 8px; }
+    .danger-note { border-left: 4px solid var(--critical); background: rgba(239,107,107,.08); padding: 14px 16px; border-radius: 8px; margin: 16px 0; }
+    .good-note { border-left: 4px solid var(--ok); background: rgba(85,194,122,.08); padding: 14px 16px; border-radius: 8px; margin: 16px 0; }
+    .toc { background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin: 28px 0; }
+    .toc a { display: inline-block; margin: 4px 16px 4px 0; text-decoration: none; color: var(--text); opacity: .9; }
+    .toc a:hover { color: var(--accent); }
+    footer { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+    @media print {
+      body { background: white; color: #111; }
+      .card, .meta-card, .toc, pre, td { background: white; }
+      th { background: #eee; color: #111; }
+      a { color: #111; }
+      .page { max-width: 100%; padding: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div class="eyebrow">Packaging Control · Contexto vivo del proyecto</div>
+      <h1>Resumen integral del sistema de control de desarrollo de packaging</h1>
+      <p>Documento de contexto para continuar el proyecto en nuevos hilos de Codex/ChatGPT sin perder decisiones, arquitectura, lógica de negocio ni estado de avance. Está pensado para actualizarse en cada hito.</p>
+      <div class="meta">
+        <div class="meta-card"><strong>Estado</strong>PM + Altas reales validadas</div>
+        <div class="meta-card"><strong>Stack</strong>Next.js · Prisma · PostgreSQL · React</div>
+        <div class="meta-card"><strong>Último hito</strong>Adapter semántico de Alta de Mat validado</div>
+        <div class="meta-card"><strong>Próxima fuente</strong>BOM / estructura pre-SAP</div>
+      </div>
+    </header>
+
+    <nav class="toc">
+      <strong>Índice</strong><br/>
+      <a href="#objetivo">Objetivo</a>
+      <a href="#arquitectura">Arquitectura</a>
+      <a href="#modelo">Modelo conceptual</a>
+      <a href="#fuentes">Fuentes</a>
+      <a href="#pm">PM real</a>
+      <a href="#altas">Altas reales</a>
+      <a href="#scoring">Scoring</a>
+      <a href="#validaciones">Validaciones</a>
+      <a href="#decisiones">Decisiones</a>
+      <a href="#pendiente">Pendiente</a>
+      <a href="#siguiente">Siguiente paso</a>
+    </nav>
+
+    <section id="objetivo">
+      <h2>1. Objetivo del sistema</h2>
+      <p>El proyecto busca construir una aplicación interna para controlar el desarrollo de packaging, integrando fuentes dispersas y convirtiéndolas en una lectura operativa unificada.</p>
+      <p>La app no debe limitarse a mostrar datos. Debe detectar qué debería existir, qué evidencia real existe, qué falta, qué está bloqueado y dónde hay inconsistencias.</p>
+      <div class="section-grid">
+        <div class="card">
+          <h3>Objetivo operativo</h3>
+          <ul>
+            <li>Centralizar estado real de productos y materiales de empaque.</li>
+            <li>Evitar seguimiento manual fragmentado entre Excel, SAP y Moondesk.</li>
+            <li>Detectar faltantes antes de que se vuelvan bloqueos.</li>
+            <li>Dar trazabilidad al proceso completo de packaging.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Objetivo técnico</h3>
+          <ul>
+            <li>Normalizar fuentes semi-estructuradas.</li>
+            <li>Separar expectativa, evidencia, matching y reglas.</li>
+            <li>Validar comportamiento con fixtures y casos reales.</li>
+            <li>Evitar que una fuente contamine el lifecycle de otra.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="arquitectura">
+      <h2>2. Arquitectura técnica actual</h2>
+      <table>
+        <tr><th>Área</th><th>Estado</th></tr>
+        <tr><td>Frontend</td><td>Next.js App Router + React</td></tr>
+        <tr><td>Backend/lógica</td><td><code>src/server</code>, con servicios, repositorios, ETL, reglas, matching y validación</td></tr>
+        <tr><td>Base de datos</td><td>PostgreSQL local instalado por Homebrew, base <code>packaging_control</code></td></tr>
+        <tr><td>ORM</td><td>Prisma</td></tr>
+        <tr><td>Validación</td><td>Runners funcionales y runners con datos reales</td></tr>
+      </table>
+      <h3>Estructura relevante</h3>
+      <pre><code>packaging-control/
+  prisma/
+    schema.prisma
+    seed.ts
+  src/
+    app/
+    components/
+    lib/
+    server/
+      etl/
+      integrations/
+      matching/
+      repositories/
+      rules/
+      services/
+      validation/
+  docs/
+    context.md</code></pre>
+    </section>
+
+    <section id="modelo">
+      <h2>3. Modelo conceptual consolidado</h2>
+      <p>El sistema se apoya en una separación conceptual ya validada:</p>
+      <table>
+        <tr><th>Concepto</th><th>Significado</th><th>Fuente principal</th></tr>
+        <tr><td>Expectativa</td><td>Lo que debería existir para un producto/caso.</td><td>PM Excel</td></tr>
+        <tr><td>Evidencia</td><td>Señales reales de que algo ya entró a un circuito operativo.</td><td>Altas, BOM, SAP, Moondesk, base interna</td></tr>
+        <tr><td>Matching</td><td>Proceso de reconciliar expectativa con evidencia.</td><td>Módulo específico de matching</td></tr>
+        <tr><td>Reglas</td><td>Interpretación del estado operativo, score y alertas.</td><td><code>project-item-rules.ts</code> y <code>project-rules.ts</code></td></tr>
+      </table>
+      <h3>Entidad central</h3>
+      <p>La entidad central es <code>project_items</code>. Representa cada componente de packaging dentro de un proyecto. Ya no se interpreta como “material detectado”, sino como un componente esperado o evidenciado dentro de un caso.</p>
+      <h3>Estados clave</h3>
+      <table>
+        <tr><th>Campo</th><th>Uso</th></tr>
+        <tr><td><code>componentSlot</code></td><td>Tipo canónico: ESTUCHE, PROSPECTO, BLISTER, ALUMINIO, etc.</td></tr>
+        <tr><td><code>originMode</code></td><td>Origen del item: PM_EXPECTED, REQUEST_DETECTED, BOM_DETECTED, etc.</td></tr>
+        <tr><td><code>expectedStatus</code></td><td>Indica si el item nace por expectativa, evidencia o no aplica.</td></tr>
+        <tr><td><code>identificationStatus</code></td><td>Nivel de identificación: NOT_IDENTIFIED, PARTIALLY_IDENTIFIED, IDENTIFIED.</td></tr>
+        <tr><td><code>matchingStatus</code></td><td>Calidad del match: EXACT, INFERRED, AMBIGUOUS, MANUAL_REVIEW.</td></tr>
+        <tr><td><code>status</code></td><td>Estado operativo derivado: WAITING_CODE, WAITING_DOCS, BLOCKED, READY, etc.</td></tr>
+      </table>
+    </section>
+
+    <section id="fuentes">
+      <h2>4. Fuentes de datos y rol de cada una</h2>
+      <table>
+        <tr><th>Fuente</th><th>Rol</th><th>Estado actual</th></tr>
+        <tr><td>PM Excel</td><td>Define expectativa inicial del caso y componentes esperados.</td><td><span class="tag ok">Integrada y validada</span></td></tr>
+        <tr><td>Planilla de altas de códigos</td><td>Evidencia operativa temprana de pedido/alta de código.</td><td><span class="tag ok">Integrada y validada</span></td></tr>
+        <tr><td>BOM / estructura pre-SAP</td><td>Evidencia de estructura operativa previa a SAP.</td><td><span class="tag warn">Próximo paso</span></td></tr>
+        <tr><td>Base interna de materiales</td><td>Consulta de registro técnico interno/materiales existentes.</td><td><span class="tag warn">Pendiente</span></td></tr>
+        <tr><td>Moondesk</td><td>Circuito documental, tareas, revisión y aprobación.</td><td><span class="tag warn">Pendiente</span></td></tr>
+        <tr><td>SAP</td><td>Formalización real: material, BOM, fase, estado y fechas.</td><td><span class="tag warn">Pendiente</span></td></tr>
+      </table>
+    </section>
+
+    <section id="pm">
+      <h2>5. Fuente 1 validada: PM Excel real</h2>
+      <div class="good-note"><strong>1 workbook = 1 caso.</strong><br/>Aunque el archivo tenga varias hojas, se selecciona una sola hoja válida. No se genera una fila staging por cada pestaña.</div>
+      <h3>Reglas del parser PM</h3>
+      <ul>
+        <li>El archivo PM no es tabular. Es una matriz semi-estructurada con labels y bloques.</li>
+        <li>Se detecta la sheet válida por presencia de <code>Producto</code> + <code>Presentación</code>.</li>
+        <li><code>Droga Activa</code> se captura cuando existe, pero no bloquea importación.</li>
+        <li>Las hojas vacías o de plantilla se ignoran.</li>
+        <li>Se preserva <code>rawData.rows</code> para parseos posteriores.</li>
+      </ul>
+      <h3>Derivación de componentes esperados desde PM</h3>
+      <table>
+        <tr><th>ComponentSlot</th><th>Señal utilizada</th></tr>
+        <tr><td>ESTUCHE</td><td>Label explícito Estuche/Caja con descripción.</td></tr>
+        <tr><td>PROSPECTO</td><td>Fila SI/NO marcada positivamente para Prospecto/Info paciente.</td></tr>
+        <tr><td>BLISTER</td><td>Toggle SI/NO o headers estructurados como Unid. X Blíster / Cant. Blíster.</td></tr>
+        <tr><td>ALUMINIO</td><td>Descripción material real con aluminio/foil/alu.</td></tr>
+        <tr><td>FRASCO</td><td>Solo si hay señal positiva clara; si marca NO, se suprime.</td></tr>
+        <tr><td>POMO</td><td>Label explícito pomo/tubo con señal positiva.</td></tr>
+      </table>
+      <h3>Caso real validado: PYLOBER</h3>
+      <table>
+        <tr><th>Resultado</th><th>Valor</th></tr>
+        <tr><td>Proyecto creado</td><td>1</td></tr>
+        <tr><td>Project items esperados</td><td>4</td></tr>
+        <tr><td>Componentes</td><td>ESTUCHE, PROSPECTO, BLISTER, ALUMINIO</td></tr>
+        <tr><td>Evidencias PM</td><td>4</td></tr>
+        <tr><td>Estado inicial</td><td>WAITING_CODE</td></tr>
+        <tr><td>HealthScore PM-only</td><td>0</td></tr>
+      </table>
+    </section>
+
+    <section id="altas">
+      <h2>6. Fuente 2 validada: Planilla real de altas de códigos</h2>
+      <div class="good-note">La planilla de altas se interpreta como <strong>evidencia operativa temprana</strong>, no como maestro, no como BOM y no como SAP.</div>
+      <h3>Archivo real analizado</h3>
+      <p><code>Control de Vistas materiales dado de alta (1).xlsx</code></p>
+      <h3>Problema real de la planilla</h3>
+      <p>La hoja <code>Alta de Mat</code> no es solo una tabla desordenada: mezcla dominios distintos.</p>
+      <table>
+        <tr><th>Dominio</th><th>Ejemplos</th><th>¿Crea project_item?</th></tr>
+        <tr><td>Packaging component</td><td>EST.PYLOBER, PROSP.PYLOBER, ALUM.PYLOBER</td><td>Sí, como evidencia contra PM</td></tr>
+        <tr><td>Packaging material</td><td>P.V.C ACLAR 160/42 CRISTAL</td><td>No crea item; puede cubrir componente esperado</td></tr>
+        <tr><td>Producto terminado</td><td>PYLOBER CAPS. X 120</td><td>No</td></tr>
+        <tr><td>Semielaborado</td><td>PYLOBER TETRACICLINA COMP.REC.</td><td>No</td></tr>
+        <tr><td>Materia prima / insumo</td><td>TIXOSIL, SYLOID, cápsula vacía</td><td>No</td></tr>
+      </table>
+      <h3>Adapter semántico implementado</h3>
+      <p>Se creó un adapter específico para <code>Alta de Mat</code>: <code>alta-mat-material-requests.ts</code>.</p>
+      <ul>
+        <li>Lee columnas por posición real, no por header plano.</li>
+        <li>Filtra por contexto de proyecto/token.</li>
+        <li>Clasifica dominio por fila.</li>
+        <li>Distingue <code>PACKAGING_COMPONENT</code> vs <code>PACKAGING_MATERIAL</code>.</li>
+        <li>Opera con <code>matchOnlyExpectedPmItems = true</code>.</li>
+        <li>No crea nuevos <code>project_items</code>; solo enriquece los ya nacidos desde PM.</li>
+      </ul>
+      <h3>Resultado real PYLOBER con Alta de Mat</h3>
+      <table>
+        <tr><th>Métrica</th><th>Valor</th></tr>
+        <tr><td>Filas parseadas</td><td>892</td></tr>
+        <tr><td>Filas dentro de contexto PYLOBER</td><td>10</td></tr>
+        <tr><td>Filas packaging útiles</td><td>4</td></tr>
+        <tr><td>Filas normalizadas a MaterialRequest</td><td>4</td></tr>
+        <tr><td>Filas ignoradas</td><td>888</td></tr>
+        <tr><td>Project items finales</td><td>4</td></tr>
+        <tr><td>Material requests</td><td>4</td></tr>
+        <tr><td>Evidencias totales</td><td>8</td></tr>
+        <tr><td>Duplicados por slot</td><td>0</td></tr>
+        <tr><td>HealthScore</td><td>28</td></tr>
+      </table>
+      <h3>Reconciliación exacta</h3>
+      <table>
+        <tr><th>Slot</th><th>Fila</th><th>Código</th><th>Descripción</th><th>Tipo</th></tr>
+        <tr><td>ESTUCHE</td><td>341</td><td>SE09/70</td><td>EST.PYLOBER X120 CAPS.</td><td>PACKAGING_COMPONENT</td></tr>
+        <tr><td>ALUMINIO</td><td>342</td><td>ED01/10</td><td>ALUM.PYLOBER X 12 CAPS.(V) 193MM</td><td>PACKAGING_COMPONENT</td></tr>
+        <tr><td>PROSPECTO</td><td>343</td><td>SE10/70</td><td>PROSP.PYLOBER</td><td>PACKAGING_COMPONENT</td></tr>
+        <tr><td>BLISTER</td><td>344</td><td>EXXX</td><td>P.V.C ACLAR 160/42 CRISTAL (197MM)</td><td>PACKAGING_MATERIAL</td></tr>
+      </table>
+      <h3>Efecto de altas sobre el lifecycle</h3>
+      <table>
+        <tr><th>Antes PM-only</th><th>Después PM + Altas</th></tr>
+        <tr><td>4 evidencias PM</td><td>4 evidencias PM + 4 evidencias MaterialRequest</td></tr>
+        <tr><td>NOT_IDENTIFIED</td><td>PARTIALLY_IDENTIFIED</td></tr>
+        <tr><td>CODE_NOT_REQUESTED activo</td><td>CODE_NOT_REQUESTED resuelto</td></tr>
+        <tr><td>EXPECTED_COMPONENT_MISSING activo</td><td>EXPECTED_COMPONENT_MISSING resuelto</td></tr>
+        <tr><td>HealthScore 0</td><td>HealthScore 28</td></tr>
+      </table>
+    </section>
+
+    <section id="scoring">
+      <h2>7. Reglas, scoring y alertas</h2>
+      <h3>Dimensiones de evaluación</h3>
+      <ul>
+        <li>Definición</li>
+        <li>Codificación</li>
+        <li>Estructura pre-SAP</li>
+        <li>Formalización SAP</li>
+        <li>Documentación técnica interna</li>
+        <li>Aprobación documental</li>
+      </ul>
+      <h3>Scoring por perfil operativo</h3>
+      <table>
+        <tr><th>Perfil</th><th>Slots</th><th>Mayor peso</th></tr>
+        <tr><td>Primarios</td><td>BLISTER, ALUMINIO, FRASCO, POMO</td><td>Código, pre-BOM, técnica</td></tr>
+        <tr><td>Regulatorio</td><td>PROSPECTO</td><td>Aprobación documental</td></tr>
+        <tr><td>Secundario</td><td>ESTUCHE</td><td>Código + aprobación documental</td></tr>
+      </table>
+      <h3>Severidades</h3>
+      <table>
+        <tr><th>Alerta</th><th>Severidad / uso</th></tr>
+        <tr><td>EXPECTED_COMPONENT_MISSING</td><td>INFO en PM-only puro.</td></tr>
+        <tr><td>CODE_NOT_REQUESTED</td><td>WARNING, prioridad alta en primarios.</td></tr>
+        <tr><td>PRE_BOM_MISSING</td><td>WARNING, prioridad alta si afecta estructura operativa.</td></tr>
+        <tr><td>APPROVED_DOCUMENT_MISSING</td><td>CRITICAL para PROSPECTO, WARNING para otros.</td></tr>
+        <tr><td>REQUEST_WITHOUT_FORMAL_MATERIAL</td><td>Se activa cuando existe alta pero no maestro/SAP formal.</td></tr>
+        <tr><td>Inconsistencias reales</td><td>CRITICAL.</td></tr>
+      </table>
+      <h3>Estado luego de PM + Altas</h3>
+      <ul>
+        <li><code>PRE_BOM_MISSING</code> persiste.</li>
+        <li><code>APPROVED_DOCUMENT_MISSING</code> persiste.</li>
+        <li><code>REQUEST_WITHOUT_FORMAL_MATERIAL</code> aparece.</li>
+        <li>El proyecto mejora, pero no puede cerrar.</li>
+      </ul>
+    </section>
+
+    <section id="validaciones">
+      <h2>8. Runners y validaciones</h2>
+      <table>
+        <tr><th>Comando</th><th>Propósito</th><th>Estado</th></tr>
+        <tr><td><code>npm run validate:functional</code></td><td>Escenarios funcionales controlados.</td><td>8/8 OK</td></tr>
+        <tr><td><code>npm run validate:pm-only</code></td><td>Validación PM real o fixture PM.</td><td>OK</td></tr>
+        <tr><td><code>npm run validate:pm-plus-altas</code></td><td>Fixture PM + altas.</td><td>OK</td></tr>
+        <tr><td><code>npm run validate:alta-mat-real</code></td><td>Alta de Mat real con PYLOBER.</td><td>OK</td></tr>
+        <tr><td><code>npm run lint</code></td><td>Validación técnica de lint.</td><td>OK</td></tr>
+      </table>
+      <h3>QA / observabilidad interna</h3>
+      <ul>
+        <li>Vista interna de QA para escenarios funcionales.</li>
+        <li>Endpoint JSON interno de validación funcional.</li>
+        <li>Panel “Why” con expectativa, matching, evidencias, dimensiones y decisión final.</li>
+      </ul>
+    </section>
+
+    <section id="decisiones">
+      <h2>9. Decisiones de diseño ya tomadas</h2>
+      <ul class="status-list">
+        <li>No usar tabla plana para PM.</li>
+        <li>PM gobierna la expectativa.</li>
+        <li>Altas son evidencia temprana, no maestro ni SAP.</li>
+        <li>No crear nuevos project_items desde Alta de Mat en esta etapa.</li>
+        <li>Scope gobernado por PM: <code>matchOnlyExpectedPmItems = true</code>.</li>
+        <li>Separar componente funcional de material del componente.</li>
+        <li>Conservar <code>originMode = PM_EXPECTED</code> cuando una fuente posterior matchea contra un item PM.</li>
+        <li>No subir a <code>IDENTIFIED</code> sin maestro/SAP confiable.</li>
+        <li>Usar parsers/adapters semánticos para planillas reales sucias.</li>
+        <li>Validar cada fuente contra archivo real antes de avanzar a la siguiente.</li>
+      </ul>
+      <div class="danger-note">
+        <strong>Regla crítica para próximas fuentes:</strong><br/>
+        No pasar a una fuente nueva hasta haber completado: diseño conceptual → archivo real → mapping real → validación real → commit.
+      </div>
+    </section>
+
+    <section id="pendiente">
+      <h2>10. Qué queda por hacer</h2>
+      <h3>Próxima fuente: BOM / estructura pre-SAP</h3>
+      <p>Es la siguiente fuente lógica porque hoy siguen activas alertas como <code>PRE_BOM_MISSING</code>. Esta fuente debe aportar evidencia de estructura operativa previa a SAP, pero no debe confundirse con SAP formal.</p>
+      <h4>Objetivos de la integración BOM / pre-SAP</h4>
+      <ul class="pending">
+        <li>Entender estructura real de la planilla BOM.</li>
+        <li>Detectar si existe estructura operativa para los componentes esperados.</li>
+        <li>Separar estructura pre-SAP de BOM formal SAP.</li>
+        <li>Resolver o reducir <code>PRE_BOM_MISSING</code>.</li>
+        <li>No crear maestro ni SAP formal desde esta fuente.</li>
+      </ul>
+      <h3>Fuentes pendientes posteriores</h3>
+      <table>
+        <tr><th>Fuente</th><th>Objetivo futuro</th></tr>
+        <tr><td>Base interna de materiales</td><td>Verificar existencia de material, plano, especificación, formato, observaciones.</td></tr>
+        <tr><td>Moondesk</td><td>Traer tareas, documentos, estados de revisión y aprobación.</td></tr>
+        <tr><td>SAP</td><td>Confirmar existencia formal de material, BOM, fase, liberación y fechas.</td></tr>
+        <tr><td>UI operativa final</td><td>Mostrar estado real por proyecto, componente, fuente, score y alerta.</td></tr>
+      </table>
+      <h3>Deuda / puntos a vigilar</h3>
+      <ul>
+        <li>El caso <code>ALUMINIO</code> puede mezclarse con material de blister. Vigilar con más casos reales.</li>
+        <li>El parser de PM detecta lo necesario, pero no conviene expandirlo sin nuevos casos.</li>
+        <li>El parser de Alta de Mat funciona para PYLOBER; validar más adelante con otros productos.</li>
+        <li>La lógica de scoring está calibrada con pocas fuentes. No sobreoptimizar todavía.</li>
+        <li>Evitar que futuros adapters creen project_items fuera del scope PM sin revisión explícita.</li>
+      </ul>
+    </section>
+
+    <section id="siguiente">
+      <h2>11. Mensaje recomendado para el próximo hilo</h2>
+      <pre><code>Contexto:
+Ya tengo integrado y validado PM real y Alta de Mat real.
+
+PM:
+- 1 workbook = 1 caso
+- deriva expectativa de componentes
+- caso PYLOBER validado con ESTUCHE, PROSPECTO, BLISTER, ALUMINIO
+
+Altas:
+- Alta de Mat integrada con adapter semántico
+- altas = evidencia operativa temprana
+- no crea maestro, BOM ni SAP
+- no crea nuevos project_items
+- matchOnlyExpectedPmItems = true
+- PYLOBER validado con 4 material_requests y 0 duplicados
+
+Quiero integrar la tercera fuente real: planilla de estructura BOM / pre-SAP.
+
+No implementar todavía.
+Primero diseñar:
+1. cómo modelar esta fuente en el pipeline actual
+2. qué campos mínimos extraer
+3. cómo mapear contra project_items existentes
+4. cómo impacta en status, readinessScore, alertas y healthScore
+5. cómo testear sin romper PM + altas</code></pre>
+    </section>
+
+    <footer>
+      <p>Documento generado como contexto vivo del proyecto. Actualizar luego de cada hito relevante: nueva fuente integrada, cambio de arquitectura, ajuste de reglas, validación real o integración externa.</p>
+    </footer>
+  </main>
+</body>
+</html>
