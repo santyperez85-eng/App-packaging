@@ -12,6 +12,7 @@
     "validate:pm-plus-altas": "node --import tsx ./src/server/validation/run-pm-material-requests-consolidation.ts",
     "validate:alta-mat-real": "node --import tsx ./src/server/validation/run-alta-mat-real-validation.ts",
     "validate:perpiel-pm-bom": "node --import tsx ./src/server/validation/run-perpiel-pm-bom-validation.ts",
+    "validate:perpiel-spray-pm-bom": "node --import tsx ./src/server/validation/run-perpiel-spray-pm-bom-validation.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",

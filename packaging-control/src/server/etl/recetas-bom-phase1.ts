@@ -62,6 +62,8 @@ type BomCandidate = {
   pendingConfirmation: boolean;
 };
 
+type BomSubcomponent = BomCandidate["subcomponents"][number];
+
 type AltaReason = {
   rowNumber: number;
   reason: string;
@@ -344,6 +346,8 @@ export function buildRecetasBomImportPayload(params: BuildRecetasBomPayloadParam
 
     contextMatchedBlocks += 1;
     const blockCandidates = new Map<ComponentSlot, BomCandidate>();
+    const blockSubcomponents: BomSubcomponent[] = [];
+    const blockSubcomponentRows = new Set<number>();
     const blockNotes: string[] = [];
 
     for (const row of block.rows) {
@@ -399,7 +403,7 @@ export function buildRecetasBomImportPayload(params: BuildRecetasBomPayloadParam
           continue;
         }
 
-        packagingUsefulRows += 1;
+        packagingUsefulRows += 1 + (componentSlot === ComponentSlot.FRASCO ? blockSubcomponents.length : 0);
         blockCandidates.set(componentSlot, {
           componentSlot,
           componentName: row.description ?? componentSlot,
@@ -407,9 +411,12 @@ export function buildRecetasBomImportPayload(params: BuildRecetasBomPayloadParam
           primaryRowNumber: row.rowNumber,
           classificationReason: "functional_packaging_component_row",
           block,
-          subcomponents: [],
+          subcomponents: componentSlot === ComponentSlot.FRASCO ? [...blockSubcomponents] : [],
           contextNotes: [],
-          relatedRowNumbers: [row.rowNumber],
+          relatedRowNumbers:
+            componentSlot === ComponentSlot.FRASCO
+              ? [row.rowNumber, ...blockSubcomponents.map((item) => item.rowNumber)].sort((left, right) => left - right)
+              : [row.rowNumber],
           pendingConfirmation: false
         });
 
@@ -423,16 +430,24 @@ export function buildRecetasBomImportPayload(params: BuildRecetasBomPayloadParam
       }
 
       if (isPackagingSubcomponentRow(row)) {
+        const subcomponent = {
+          rowNumber: row.rowNumber,
+          code: row.code,
+          description: row.description ?? "Subcomponent"
+        };
         const frascoCandidate = blockCandidates.get(ComponentSlot.FRASCO);
+
+        if (!blockSubcomponentRows.has(row.rowNumber)) {
+          blockSubcomponents.push(subcomponent);
+          blockSubcomponentRows.add(row.rowNumber);
+        }
 
         if (frascoCandidate) {
           packagingUsefulRows += 1;
-          frascoCandidate.subcomponents.push({
-            rowNumber: row.rowNumber,
-            code: row.code,
-            description: row.description ?? "Subcomponent"
-          });
-          frascoCandidate.relatedRowNumbers.push(row.rowNumber);
+          if (!frascoCandidate.relatedRowNumbers.includes(row.rowNumber)) {
+            frascoCandidate.subcomponents.push(subcomponent);
+            frascoCandidate.relatedRowNumbers.push(row.rowNumber);
+          }
           const note = formatNote(row);
 
           if (note) {
@@ -442,7 +457,12 @@ export function buildRecetasBomImportPayload(params: BuildRecetasBomPayloadParam
           continue;
         }
 
-        addIgnoredReason(ignoredSamples, ignoredByReason, "subcomponent_without_packaging_parent", row);
+        const note = formatNote(row);
+
+        if (note) {
+          blockNotes.push(note);
+        }
+
         continue;
       }
 
