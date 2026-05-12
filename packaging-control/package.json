@@ -14,6 +14,7 @@
     "validate:perpiel-pm-bom": "node --import tsx ./src/server/validation/run-perpiel-pm-bom-validation.ts",
     "validate:perpiel-spray-pm-bom": "node --import tsx ./src/server/validation/run-perpiel-spray-pm-bom-validation.ts",
     "validate:magnesio-pm-bom": "node --import tsx ./src/server/validation/run-magnesio-pm-bom-validation.ts",
+    "validate:project-item-lifecycle": "node --import tsx ./src/server/validation/run-project-item-lifecycle-validation.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
