@@ -56,6 +56,7 @@ type BomCandidate = {
     rowNumber: number;
     code: string | null;
     description: string;
+    kind: PackagingSubcomponentKind;
   }>;
   contextNotes: string[];
   relatedRowNumbers: number[];
@@ -63,6 +64,7 @@ type BomCandidate = {
 };
 
 type BomSubcomponent = BomCandidate["subcomponents"][number];
+type PackagingSubcomponentKind = "BOMBA" | "TAPA" | "CUCHARA" | "ETIQUETA";
 
 type AltaReason = {
   rowNumber: number;
@@ -86,6 +88,20 @@ type Diagnostics = {
     subcomponentCount: number;
     pendingConfirmation: boolean;
     relatedRowNumbers: number[];
+  }>;
+  candidateBlocks: Array<{
+    componentSlot: ComponentSlot;
+    componentName: string;
+    primaryRowNumber: number;
+    blockStartRow: number;
+    blockEndRow: number;
+    rootDescription: string | null;
+    subcomponents: BomSubcomponent[];
+    contextNotes: string[];
+    pendingConfirmation: boolean;
+    relatedRowNumbers: number[];
+    selectionStatus: "selected" | "ambiguous_duplicate_slot_across_blocks";
+    selectionReason: string;
   }>;
 };
 
@@ -148,10 +164,26 @@ function isBulkOrProductProcessRow(row: PhysicalRow) {
   );
 }
 
-function isPackagingSubcomponentRow(row: PhysicalRow) {
+function detectPackagingSubcomponentKind(row: PhysicalRow): PackagingSubcomponentKind | null {
   const description = normalizeToken(row.description);
 
-  return description.includes("bomba") || description.includes("tapa");
+  if (description.includes("bomba")) {
+    return "BOMBA";
+  }
+
+  if (description.includes("tapa")) {
+    return "TAPA";
+  }
+
+  if (description.includes("cuchara")) {
+    return "CUCHARA";
+  }
+
+  if (description.includes("etiqueta") || description.includes("etiq")) {
+    return "ETIQUETA";
+  }
+
+  return null;
 }
 
 function detectPackagingSlot(row: PhysicalRow) {
@@ -231,6 +263,33 @@ function hasPendingConfirmation(notes: string[]) {
     text.includes("falta definir") ||
     text.includes("aun sin cargar fase 1 en sap")
   );
+}
+
+function buildSubcomponent(row: PhysicalRow, kind: PackagingSubcomponentKind): BomSubcomponent {
+  return {
+    rowNumber: row.rowNumber,
+    code: row.code,
+    description: row.description ?? "Subcomponent",
+    kind
+  };
+}
+
+function attachSubcomponentToFrascoCandidate(
+  candidate: BomCandidate | undefined,
+  subcomponent: BomSubcomponent
+) {
+  if (!candidate) {
+    return;
+  }
+
+  if (!candidate.subcomponents.some((item) => item.rowNumber === subcomponent.rowNumber && item.kind === subcomponent.kind)) {
+    candidate.subcomponents.push(subcomponent);
+  }
+
+  if (!candidate.relatedRowNumbers.includes(subcomponent.rowNumber)) {
+    candidate.relatedRowNumbers.push(subcomponent.rowNumber);
+    candidate.relatedRowNumbers.sort((left, right) => left - right);
+  }
 }
 
 function formatNote(row: PhysicalRow) {
@@ -384,6 +443,33 @@ export function buildRecetasBomImportPayload(params: BuildRecetasBomPayloadParam
       }
 
       const componentSlot = detectPackagingSlot(row);
+      const subcomponentKind = detectPackagingSubcomponentKind(row);
+
+      if (
+        componentSlot === ComponentSlot.ETIQUETA &&
+        subcomponentKind === "ETIQUETA" &&
+        !expectedSlots.has(ComponentSlot.ETIQUETA) &&
+        expectedSlots.has(ComponentSlot.FRASCO)
+      ) {
+        const subcomponent = buildSubcomponent(row, subcomponentKind);
+        const frascoCandidate = blockCandidates.get(ComponentSlot.FRASCO);
+
+        if (!blockSubcomponentRows.has(row.rowNumber)) {
+          blockSubcomponents.push(subcomponent);
+          blockSubcomponentRows.add(row.rowNumber);
+        }
+
+        attachSubcomponentToFrascoCandidate(frascoCandidate, subcomponent);
+        packagingUsefulRows += frascoCandidate ? 1 : 0;
+
+        const note = formatNote(row);
+
+        if (note) {
+          blockNotes.push(note);
+        }
+
+        continue;
+      }
 
       if (componentSlot) {
         if (!expectedSlots.has(componentSlot)) {
@@ -403,7 +489,13 @@ export function buildRecetasBomImportPayload(params: BuildRecetasBomPayloadParam
           continue;
         }
 
-        packagingUsefulRows += 1 + (componentSlot === ComponentSlot.FRASCO ? blockSubcomponents.length : 0);
+        const embeddedSubcomponents =
+          componentSlot === ComponentSlot.FRASCO && subcomponentKind === "ETIQUETA"
+            ? [buildSubcomponent(row, subcomponentKind)]
+            : [];
+
+        packagingUsefulRows +=
+          1 + (componentSlot === ComponentSlot.FRASCO ? blockSubcomponents.length + embeddedSubcomponents.length : 0);
         blockCandidates.set(componentSlot, {
           componentSlot,
           componentName: row.description ?? componentSlot,
@@ -411,11 +503,17 @@ export function buildRecetasBomImportPayload(params: BuildRecetasBomPayloadParam
           primaryRowNumber: row.rowNumber,
           classificationReason: "functional_packaging_component_row",
           block,
-          subcomponents: componentSlot === ComponentSlot.FRASCO ? [...blockSubcomponents] : [],
+          subcomponents: componentSlot === ComponentSlot.FRASCO ? [...blockSubcomponents, ...embeddedSubcomponents] : [],
           contextNotes: [],
           relatedRowNumbers:
             componentSlot === ComponentSlot.FRASCO
-              ? [row.rowNumber, ...blockSubcomponents.map((item) => item.rowNumber)].sort((left, right) => left - right)
+              ? [
+                  row.rowNumber,
+                  ...blockSubcomponents.map((item) => item.rowNumber),
+                  ...embeddedSubcomponents.map((item) => item.rowNumber)
+                ]
+                  .filter((rowNumber, index, values) => values.indexOf(rowNumber) === index)
+                  .sort((left, right) => left - right)
               : [row.rowNumber],
           pendingConfirmation: false
         });
@@ -429,12 +527,8 @@ export function buildRecetasBomImportPayload(params: BuildRecetasBomPayloadParam
         continue;
       }
 
-      if (isPackagingSubcomponentRow(row)) {
-        const subcomponent = {
-          rowNumber: row.rowNumber,
-          code: row.code,
-          description: row.description ?? "Subcomponent"
-        };
+      if (subcomponentKind) {
+        const subcomponent = buildSubcomponent(row, subcomponentKind);
         const frascoCandidate = blockCandidates.get(ComponentSlot.FRASCO);
 
         if (!blockSubcomponentRows.has(row.rowNumber)) {
@@ -444,10 +538,7 @@ export function buildRecetasBomImportPayload(params: BuildRecetasBomPayloadParam
 
         if (frascoCandidate) {
           packagingUsefulRows += 1;
-          if (!frascoCandidate.relatedRowNumbers.includes(row.rowNumber)) {
-            frascoCandidate.subcomponents.push(subcomponent);
-            frascoCandidate.relatedRowNumbers.push(row.rowNumber);
-          }
+          attachSubcomponentToFrascoCandidate(frascoCandidate, subcomponent);
           const note = formatNote(row);
 
           if (note) {
@@ -487,6 +578,7 @@ export function buildRecetasBomImportPayload(params: BuildRecetasBomPayloadParam
 
   const normalizedRows: RawRow[] = [];
   const candidateDiagnostics: Diagnostics["candidates"] = [];
+  const candidateBlockDiagnostics: Diagnostics["candidateBlocks"] = [];
 
   for (const [slot, slotCandidates] of candidatesBySlot.entries()) {
     if (slotCandidates.length > 1) {
@@ -499,10 +591,41 @@ export function buildRecetasBomImportPayload(params: BuildRecetasBomPayloadParam
         );
       }
 
+      for (const candidate of slotCandidates) {
+        candidateBlockDiagnostics.push({
+          componentSlot: slot,
+          componentName: candidate.componentName,
+          primaryRowNumber: candidate.primaryRowNumber,
+          blockStartRow: candidate.block.startRow,
+          blockEndRow: candidate.block.endRow,
+          rootDescription: candidate.block.rootDescription,
+          subcomponents: candidate.subcomponents,
+          contextNotes: candidate.contextNotes,
+          pendingConfirmation: candidate.pendingConfirmation,
+          relatedRowNumbers: candidate.relatedRowNumbers,
+          selectionStatus: "ambiguous_duplicate_slot_across_blocks",
+          selectionReason: "Multiple plausible BOM/Recetas blocks matched the same PM-expected slot; phase 1 does not choose by row order."
+        });
+      }
+
       continue;
     }
 
     const candidate = slotCandidates[0];
+    candidateBlockDiagnostics.push({
+      componentSlot: slot,
+      componentName: candidate.componentName,
+      primaryRowNumber: candidate.primaryRowNumber,
+      blockStartRow: candidate.block.startRow,
+      blockEndRow: candidate.block.endRow,
+      rootDescription: candidate.block.rootDescription,
+      subcomponents: candidate.subcomponents,
+      contextNotes: candidate.contextNotes,
+      pendingConfirmation: candidate.pendingConfirmation,
+      relatedRowNumbers: candidate.relatedRowNumbers,
+      selectionStatus: "selected",
+      selectionReason: "Single plausible BOM/Recetas block matched this PM-expected slot."
+    });
     normalizedRows.push(
       buildNormalizedBomRow({
         projectCode: params.projectCode,
@@ -542,7 +665,8 @@ export function buildRecetasBomImportPayload(params: BuildRecetasBomPayloadParam
       ignoredRows: Object.values(ignoredByReason).reduce((total, value) => total + value, 0),
       ignoredByReason,
       ignoredSamples,
-      candidates: candidateDiagnostics
+      candidates: candidateDiagnostics,
+      candidateBlocks: candidateBlockDiagnostics
     }
   };
 }
