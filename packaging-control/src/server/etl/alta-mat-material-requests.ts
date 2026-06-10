@@ -315,6 +315,18 @@ function classifyAltaMatRow(row: AltaMatRawRow): ClassifiedRow {
     };
   }
 
+  if (startsWithAny(description, ["tc "])) {
+    // TC = tecnica de control: documento tecnico, no componente de packaging,
+    // aunque la descripcion nombre un componente (ej. "TC.ETIQUETADO FRASCO").
+    return {
+      domain: "NON_PACKAGING",
+      componentSlot: null,
+      evidenceRole: null,
+      confidence: "HIGH",
+      reason: "tc_technical_control_not_packaging"
+    };
+  }
+
   if (startsWithAny(description, ["est ", "est.", "estuche "]) || description.includes(" estuche ")) {
     return {
       domain: "PACKAGING_COMPONENT",
