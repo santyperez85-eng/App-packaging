@@ -10,6 +10,7 @@ type LifecycleRecord = Prisma.ProjectItemGetPayload<{
     materialMaster: true;
     evidences: true;
     alerts: true;
+    moondeskTasks: { include: { documents: true } };
   };
 }>;
 
@@ -17,6 +18,7 @@ type LifecycleEventKind =
   | "EXPECTATION_DEFINED"
   | "CODE_REQUESTED"
   | "PRE_BOM_STRUCTURE_EVIDENCED"
+  | "DOCUMENTATION_EVIDENCED"
   | "ALERT_OPEN"
   | "ALERT_RESOLVED"
   | "CURRENT_STATE";
@@ -166,6 +168,42 @@ function evidenceFor(item: LifecycleRecord, sourceType: string) {
   return item.evidences.filter((evidence) => evidence.sourceType === sourceType);
 }
 
+function buildDocumentationApprovalMilestone(item: LifecycleRecord): LifecycleMilestone {
+  const moondeskEvidence = evidenceFor(item, "moondesk");
+  const hasApprovedDocument = item.moondeskTasks.some(
+    (task) => task.approvedVersionAvailable || task.documents.some((document) => document.approved)
+  );
+  const hasMoondeskActivity = item.moondeskTasks.length > 0 || moondeskEvidence.length > 0;
+
+  const status: LifecycleMilestoneStatus = !item.requiresApprovedDocument
+    ? "not_required"
+    : hasApprovedDocument
+      ? "ready"
+      : hasMoondeskActivity
+        ? "partial"
+        : hasOpenAlert(item, "APPROVED_DOCUMENT_MISSING")
+          ? "missing"
+          : "not_integrated";
+
+  const reason = !item.requiresApprovedDocument
+    ? "El componente no requiere documento aprobado."
+    : hasApprovedDocument
+      ? "Moondesk reporta documentacion aprobada para el componente."
+      : hasMoondeskActivity
+        ? "Hay actividad documental en Moondesk, pero todavia no hay version aprobada."
+        : "No hay actividad documental de Moondesk asociada a este item.";
+
+  return {
+    key: "documentation_approval",
+    label: "Documentacion y aprobacion",
+    status,
+    operationalOrder: MILESTONE_ORDER.documentation_approval,
+    evidenceRefs: moondeskEvidence.map((evidence) => evidenceRef(evidence.sourceType, evidence.sourceRecordKey)),
+    alertRefs: alertsFor(item, ["APPROVED_DOCUMENT_MISSING", "INTERNAL_TECH_DOCS_MISSING", "REVIEW_OVERDUE", "DESIGN_WITHOUT_REVIEW"]),
+    reason
+  };
+}
+
 function buildMilestones(item: LifecycleRecord): LifecycleMilestone[] {
   const pmEvidence = evidenceFor(item, "pm_expected");
   const requestEvidence = evidenceFor(item, "material_request");
@@ -225,15 +263,7 @@ function buildMilestones(item: LifecycleRecord): LifecycleMilestone[] {
         ? "Existe material master asociado."
         : "MaterialsMaster real queda fuera del alcance de esta fase."
     },
-    {
-      key: "documentation_approval",
-      label: "Documentacion y aprobacion",
-      status: "not_integrated",
-      operationalOrder: MILESTONE_ORDER.documentation_approval,
-      evidenceRefs: [],
-      alertRefs: alertsFor(item, ["APPROVED_DOCUMENT_MISSING", "INTERNAL_TECH_DOCS_MISSING"]),
-      reason: "Moondesk/aprobaciones reales quedan fuera del alcance de esta fase."
-    }
+    buildDocumentationApprovalMilestone(item)
   ];
 }
 
@@ -280,7 +310,9 @@ function buildEvents(item: LifecycleRecord): LifecycleEvent[] {
           ? "CODE_REQUESTED"
           : evidence.sourceType === "bom"
             ? "PRE_BOM_STRUCTURE_EVIDENCED"
-            : "CURRENT_STATE";
+            : evidence.sourceType === "moondesk"
+              ? "DOCUMENTATION_EVIDENCED"
+              : "CURRENT_STATE";
 
     return {
       sequence: 0,
@@ -544,6 +576,9 @@ export const projectItemLifecycleService = {
         },
         alerts: {
           orderBy: [{ status: "asc" }, { severity: "desc" }, { ruleCode: "asc" }]
+        },
+        moondeskTasks: {
+          include: { documents: true }
         }
       }
     });

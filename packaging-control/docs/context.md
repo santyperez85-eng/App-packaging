@@ -146,12 +146,25 @@ Modelo conceptual:
   - Evidencia confirmada: `manualMatchStatus` (+nota +fecha) convive con el `matchStatus` calculado; los read models usan el efectivo (manual ?? calculado).
 - Validado con el caso real del Spray: 3 altas competian por el FRASCO, se eligio `EXXX/70` y el vinculo sobrevivio a una re-corrida completa del ciclo.
 
+## Moondesk (via reporte Excel, validate:moondesk)
+- La API de Moondesk esta en desarrollo; confirmado por negocio que tomara la info de los reportes Excel que se consultan hoy. El adaptador parsea el "Reporte de tareas" (archivo Tasks).
+- Vinculo conservador: por `componentSlot` dentro del proyecto (mapeando Tipo de Documento / Tipo de material a slot), solo a items esperados por el PM. No crea items. El `Cod. Insumo` queda como dato de evidencia.
+- Estado de aprobacion derivado: `Revisado`/`Hecho` + `Aprobado` con valor => APPROVED; `En Revision` o `Pendiente` con valor => IN_REVIEW; `Cambio Solicitado` con valor => CHANGES_REQUESTED.
+- Crea `MoondeskTask` (REVIEW_REQUEST) + `MoondeskDocument` + evidencia `sourceType=moondesk`. El rules engine ya lee moondeskTasks, asi que el milestone `documentation_approval` se resuelve solo (ready cuando hay doc aprobado).
+- `externalTaskId` / `externalDocumentId` estables => reimportar el reporte es idempotente (no duplica). Migracion a API futura: se reemplaza la fuente, el servicio de aplicacion (`moondesk-report-service`) se mantiene.
+- Servicio: `src/server/services/moondesk-report-service.ts`. Adapter: `src/server/etl/moondesk-tasks-report.ts`. Endpoint: `POST /api/imports/moondesk`.
+- Validado con PYLOBER: 3 docs aprobados (Estuche `SE09/70`, Prospecto `SE10/70`, Aluminio `ED01/10`) => esos slots quedan `documentation_approval=ready` sin `APPROVED_DOCUMENT_MISSING`; el BLISTER (sin doc Moondesk) queda `missing`.
+- El milestone `documentation_approval` del lifecycle dejo de estar hardcodeado en `not_integrated`.
+
+## SAP (pendiente de Sistemas)
+- Documento de requerimientos para el sector de sistemas en `docs/sap-integration-requirements.md`. Integracion de solo lectura del maestro de materiales; opciones de conexion en orden de preferencia (OData/REST, RFC/BAPI, vista de BD, export programado).
+- Queda a la espera de que Sistemas confirme factibilidad y pase la API si existe.
+
 ## Proximo paso
-Decidir entre: edicion basica de estados de items desde la UI, o arrancar el contrato real de Moondesk (P1 de fase 1). Las 3 confirmaciones pre-SAP pendientes (Creatina, Jabon, Spray) son decisiones operativas reales que estan esperando en `/review`.
+A la espera de: (1) respuesta de Sistemas sobre conexion SAP, (2) API real de Moondesk. Mientras tanto: integrar los reportes Tasks_Times / Users_Tasks_Times como enriquecimiento (metricas de proceso y trazabilidad de quien), o edicion basica de estados de items desde la UI.
 
 ## Restricciones vigentes
-- No integrar SAP todavia.
-- No integrar Moondesk todavia.
-- No tocar schema para estas fuentes.
+- SAP: a la espera de Sistemas (ver docs/sap-integration-requirements.md). No conectar hasta tener respuesta.
+- Moondesk: integrado solo via reporte Excel (Tasks). Tasks_Times y Users_Tasks_Times todavia no se consumen. La API real reemplazara la fuente cuando este lista.
 - No crear slots canonicos nuevos sin decision explicita.
 - No expandir BOM a ciegas sin caso real y criterio de validacion.
