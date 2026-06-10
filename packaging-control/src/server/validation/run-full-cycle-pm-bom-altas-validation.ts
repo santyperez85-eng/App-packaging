@@ -14,6 +14,7 @@ type FullCycleCase = {
   label: string;
   pmWorkbookPath: string;
   altaProjectToken: string;
+  altaExcludeProjectTokens?: string[];
   bomProjectToken: string;
 };
 
@@ -141,6 +142,7 @@ async function runCase(params: {
     workbookPath: params.altasWorkbookPath,
     projectCode,
     projectToken: caseConfig.altaProjectToken,
+    excludeProjectTokens: caseConfig.altaExcludeProjectTokens,
     expectedComponentSlots
   });
   await importService.importMaterialRequestRows(altas.payload);
@@ -263,7 +265,9 @@ async function main() {
       key: "perpielSpray",
       label: "PerPiel Heridas Spray x 40 ml",
       pmWorkbookPath: paths.sprayPm,
-      altaProjectToken: "PERPIEL HERIDAS X 40 ML",
+      // "PERPIEL HERIDAS" a secas identifica al spray; jabon y espuma llevan nombre calificado.
+      altaProjectToken: "PERPIEL HERIDAS",
+      altaExcludeProjectTokens: ["JABON", "ESPUMA"],
       bomProjectToken: "PERPIEL HERIDAS X 40 ML"
     },
     {
@@ -302,8 +306,28 @@ async function main() {
     lifecycleMilestone(byKey.magnesio, "FRASCO", "pre_sap_structure") === "missing";
   const sprayStructureEvidenced = lifecycleMilestone(byKey.perpielSpray, "FRASCO", "pre_sap_structure") !== "missing";
   const jabonStructureEvidenced = lifecycleMilestone(byKey.perpielJabon, "FRASCO", "pre_sap_structure") !== "missing";
+  // "PERPIEL HERIDAS" a secas es el spray: sus altas deben entrar sin contaminarse con jabon/espuma.
+  const sprayAltasCaptured =
+    byKey.perpielSpray.altas.candidates > 0 &&
+    lifecycleMilestone(byKey.perpielSpray, "FRASCO", "code_request") === "partial";
+  const sprayWithoutForeignFrasco = !byKey.perpielSpray.altas.candidateDetails.some((candidate) =>
+    /jabon|espuma/i.test(candidate.requestedDescription ?? "")
+  );
+  // El disco de induccion de Creatina es parte de la tapa: no debe existir item ALUMINIO.
+  const creatinaWithoutAluminio = !byKey.creatina.items.some((item) => String(item.componentSlot) === "ALUMINIO");
+  // El codigo de proyecto debe salir de producto+presentacion, no del nombre del archivo.
+  const projectCodesFromInternalInfo = reports.every((entry) => !entry.projectCode.includes("PLANILLA"));
 
-  if (hasDuplicateSlots || !magnesioAmbiguityPreserved || !sprayStructureEvidenced || !jabonStructureEvidenced) {
+  if (
+    hasDuplicateSlots ||
+    !magnesioAmbiguityPreserved ||
+    !sprayStructureEvidenced ||
+    !jabonStructureEvidenced ||
+    !sprayAltasCaptured ||
+    !sprayWithoutForeignFrasco ||
+    !creatinaWithoutAluminio ||
+    !projectCodesFromInternalInfo
+  ) {
     process.exitCode = 1;
   }
 }

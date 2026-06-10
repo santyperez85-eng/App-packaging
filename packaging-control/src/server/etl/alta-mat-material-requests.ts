@@ -53,6 +53,7 @@ export type AltaMatImportDiagnostics = {
   sheetName: string;
   projectCode: string;
   projectToken: string;
+  excludeProjectTokens: string[];
   rowsParsed: number;
   contextRows: number;
   packagingUsefulRows: number;
@@ -92,6 +93,12 @@ type BuildAltaMatPayloadParams = {
   workbookPath: string;
   projectCode: string;
   projectToken: string;
+  /**
+   * Tokens that invalidate el contexto aunque matchee projectToken.
+   * Caso tipico: "PERPIEL HERIDAS" identifica al spray, pero "JABON"/"ESPUMA"
+   * marcan productos hermanos con nombre calificado.
+   */
+  excludeProjectTokens?: string[];
   expectedComponentSlots: ComponentSlot[];
   batchId?: string;
   sheetName?: string;
@@ -231,11 +238,25 @@ function contextSignature(row: AltaMatRawRow) {
   return signature === "||" ? EMPTY_CONTEXT_SIGNATURE : signature;
 }
 
-function detectContextRows(rows: AltaMatRawRow[], params: { projectToken: string; maxContextCarryRows: number }) {
+function hasAnyToken(row: AltaMatRawRow, tokens: string[]) {
+  return tokens.some((token) => hasProjectToken(row, token));
+}
+
+function detectContextRows(
+  rows: AltaMatRawRow[],
+  params: { projectToken: string; excludeProjectTokens?: string[]; maxContextCarryRows: number }
+) {
   const contextRows = new Map<number, "DIRECT_TOKEN" | "CARRIED_CONTEXT">();
+  const excludedRows = new Set<number>();
+  const excludeTokens = params.excludeProjectTokens ?? [];
 
   rows.forEach((row, index) => {
     if (!hasProjectToken(row, params.projectToken)) {
+      return;
+    }
+
+    if (hasAnyToken(row, excludeTokens)) {
+      excludedRows.add(row.excelRow);
       return;
     }
 
@@ -256,6 +277,11 @@ function detectContextRows(rows: AltaMatRawRow[], params: { projectToken: string
         break;
       }
 
+      if (hasAnyToken(nextRow, excludeTokens)) {
+        excludedRows.add(nextRow.excelRow);
+        break;
+      }
+
       contextRows.set(nextRow.excelRow, "CARRIED_CONTEXT");
       carriedRows += 1;
 
@@ -265,7 +291,7 @@ function detectContextRows(rows: AltaMatRawRow[], params: { projectToken: string
     }
   });
 
-  return contextRows;
+  return { contextRows, excludedRows };
 }
 
 function startsWithAny(text: string, values: string[]) {
@@ -488,8 +514,9 @@ export function buildAltaMatMaterialRequestImportPayload(params: BuildAltaMatPay
     sheetName
   });
   const rawRows = parseAltaMatRows(matrixRows);
-  const contextRows = detectContextRows(rawRows, {
+  const { contextRows, excludedRows } = detectContextRows(rawRows, {
     projectToken: params.projectToken,
+    excludeProjectTokens: params.excludeProjectTokens,
     maxContextCarryRows: params.maxContextCarryRows ?? 3
   });
   const ignoredByReason: Record<string, number> = {};
@@ -501,7 +528,12 @@ export function buildAltaMatMaterialRequestImportPayload(params: BuildAltaMatPay
     const contextMatch = contextRows.get(row.excelRow);
 
     if (!contextMatch) {
-      addIgnored(ignoredSamples, ignoredByReason, row, "outside_project_context");
+      addIgnored(
+        ignoredSamples,
+        ignoredByReason,
+        row,
+        excludedRows.has(row.excelRow) ? "excluded_by_negative_token" : "outside_project_context"
+      );
       continue;
     }
 
@@ -561,6 +593,7 @@ export function buildAltaMatMaterialRequestImportPayload(params: BuildAltaMatPay
       sheetName,
       projectCode: params.projectCode,
       projectToken: params.projectToken,
+      excludeProjectTokens: params.excludeProjectTokens ?? [],
       rowsParsed: rawRows.length,
       contextRows: contextRows.size,
       packagingUsefulRows: candidates.length,

@@ -29,6 +29,9 @@ Modelo conceptual:
 - Se excluyen hojas tipo `Forecast`, resumen, base, compras, AARR, produccion y auxiliares por nombre y estructura.
 - `Caja` no significa `ESTUCHE`; caja es empaque terciario/logistico.
 - `ESTUCHE` solo se deriva desde senales explicitas `EST.` o `ESTUCHE`.
+- `ALUMINIO` no se deriva de descripciones de sellado por induccion: el disco/sello de induccion integra el cierre (tapa) y no pide codigo propio. Caso validado: Creatina.
+- El `projectCode` se deriva de info interna (`producto` + `presentacion` de la hoja PM), no del nombre del archivo. Fallback al filename solo si la hoja no trae producto.
+- Dato pendiente de origen: la planilla del PerPiel Heridas Spray tiene `Producto = Desinfectante` (el tipo, no el nombre); corregir la celda en la planilla para que el codigo interno quede bien.
 
 ### Altas de codigos
 - Alta de Mat integrada como evidencia operativa temprana.
@@ -37,6 +40,8 @@ Modelo conceptual:
 - No crea `project_items` nuevos.
 - Si matchea contra item PM, conserva `originMode = PM_EXPECTED`.
 - Resuelve `CODE_NOT_REQUESTED` solo cuando hay material request valido.
+- Soporta `excludeProjectTokens` (tokens negativos): una fila que matchea el token del proyecto pero contiene un token negativo queda fuera del contexto y corta el arrastre.
+- Semantica de nombres PERPIEL HERIDAS confirmada por negocio: `PERPIEL HERIDAS` a secas es el Spray x 40 ml; Jabon y Espuma siempre llevan nombre calificado. El Spray usa token `PERPIEL HERIDAS` con exclusiones `JABON` y `ESPUMA`.
 
 ### BOM/Recetas fase 1
 - Implementada como evidencia estructural pre-SAP por componente.
@@ -121,8 +126,20 @@ Modelo conceptual:
   - `PRE_BOM_MISSING` permanece activo.
   - `reconstructionGaps` deja explicito que hubo candidatos BOM ambiguos sin persistir como evidencia final.
 
+### Ciclo completo PM + Altas + BOM (validate:full-cycle)
+- Validado con 4 productos reales contra `Control de Vistas materiales dado de alta.xlsx` y `Estructura para carga de recetas.xlsx`.
+- Creatina (`PM-CREATINA-300GR`): 1 item `FRASCO` con evidencia BOM (bloque `BERNABIO CREATINA X 300 GR`); tapa, cuchara y etiqueta no crean items; el aluminio de induccion no crea item.
+- PerPiel Heridas Jabon (`PM-PERPIEL-HERIDAS-JABON-250-ML`): `FRASCO` con las 3 fuentes (PM + alta `EXXX/70` + BOM); `CODE_NOT_REQUESTED` y `PRE_BOM_MISSING` resueltos.
+- PerPiel Heridas Spray (`PM-DESINFECTANTE-40-ML`): altas capturadas con token `PERPIEL HERIDAS` + exclusiones (4 candidatos FRASCO, 10 filas hermanas excluidas); `code_request` partial; PROSPECTO sigue sin evidencia.
+- Magnesio (`PM-MAGNESIO-EN-POLVO-150GR`): alta `ED28/70` matcheada; ambiguedad BOM de 2 bloques preservada (`PRE_BOM_MISSING` activo).
+- Observacion abierta: filas `TC.` (tecnica de control) pueden clasificar como FRASCO por descripcion (ej. `TC.ETIQUETADO FRASCO x 40 ML` quedo como material request del FRASCO del Spray); decidir si se excluyen de la clasificacion packaging.
+
+## Vista de lifecycle
+- Implementada en `/project-items/:id` consumiendo el read model server-side; sin logica de negocio en frontend.
+- Los item keys de la tabla de Project Items linkean a la vista.
+
 ## Proximo paso
-Disenar una primera vista operativa simple que consuma `GET /api/project-items/:projectItemId/lifecycle` y muestre milestones, timeline, evidencias, alertas, inconsistencias y reconstruction gaps sin mover logica de negocio al frontend.
+Pantalla de revision manual de matching: resolver casos `AMBIGUOUS` / `MANUAL_REVIEW` y confirmaciones pendientes de BOM desde la UI, sin tocar la base a mano.
 
 ## Restricciones vigentes
 - No integrar SAP todavia.

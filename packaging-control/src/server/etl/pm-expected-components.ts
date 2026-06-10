@@ -531,6 +531,11 @@ function detectMatrixSlotInRow(rawData: Record<string, unknown>, slot: Component
     return { expectation: null, doesNotApply: false };
   }
 
+  if (slot === ComponentSlot.ALUMINIO && hasTerm(text, "induccion")) {
+    // Disco/sello de induccion: integra el cierre (tapa), no pide codigo propio.
+    return { expectation: null, doesNotApply: false };
+  }
+
   const labelColumn = firstMatchingColumn(row, terms);
   const matchedLabel = labelColumn === null ? null : cleanCellValue(row[labelColumn]);
   const toggleDecision = findToggleDecision(rows, rowIndex);

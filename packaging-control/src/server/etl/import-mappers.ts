@@ -148,8 +148,10 @@ export function mapPmImportRow({
   const activeIngredient = stringOrNull(
     getRowValue(row, ["active_ingredient", "activeIngredient", "droga_activa", "drogaActiva", "droga activa"])
   );
+  const internalIdentity = [productName, presentation].filter(Boolean).join(" ");
   const projectCode =
     stringOrNull(getRowValue(row, ["project_code", "codigo proyecto", "project id"])) ??
+    (internalIdentity ? `PM-${slugify(internalIdentity).toUpperCase()}` : null) ??
     (sourceWorkbook ? `PM-${slugify(sourceWorkbook.replace(/\.[^.]+$/, "")).toUpperCase()}` : null);
   const inferredProjectName = [productName, presentation].filter(Boolean).join(" - ") || sourceWorkbook;
   const projectName = stringOrNull(getRowValue(row, ["project_name", "nombre proyecto"])) ?? inferredProjectName;
