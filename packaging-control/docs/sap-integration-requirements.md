@@ -18,14 +18,15 @@ Tenemos una aplicación interna de Control de Packaging que sigue el ciclo de vi
 
 A nivel de material maestro de **packaging** (envases, etiquetas, estuches, prospectos, aluminios, etc.):
 
-- Código de material (número SAP) — clave de vínculo.
+- Código de material (número SAP completo) — clave de vínculo.
 - Descripción.
 - Estado / indicador de bloqueo (activo, bloqueado, marcado para borrado).
 - Estado de aprovisionamiento / status de compra.
 - Tipo de material.
 - Proveedor / fuente de aprovisionamiento.
-- Código raíz y versión, según cómo SAP los modele.
 - Fecha de última modificación del registro.
+
+> **Sobre raíz y versión:** SAP no diferencia versiones — trata cada código como un identificador completo. La semántica de "código raíz + versión" (p. ej. `SE09` raíz, `/70` versión) es propia de **nuestros procedimientos** de packaging, no de SAP. Por lo tanto la derivamos del lado de la app parseando el código; **no le pedimos a SAP raíz ni versión**, solo el código completo tal como lo guarda.
 
 Volumen, frecuencia y entorno de prueba ya están definidos de nuestro lado (ver sección 4); no necesitamos que Sistemas opine sobre eso, solo que confirme si es viable.
 
@@ -40,10 +41,9 @@ Volumen, frecuencia y entorno de prueba ya están definidos de nuestro lado (ver
    - Vista de base de datos / réplica de solo lectura (HANA u otra).
    - Export programado (CSV/XLSX a carpeta de red o SFTP) — *suficiente para arrancar si lo anterior no es viable hoy*.
 3. **Si existe una API/servicio**, pasarnos: endpoint o nombre del módulo de función, documentación o metadata (`$metadata` en OData), y los datos para autenticar en un entorno de prueba.
-4. **¿Cómo está modelado en SAP el concepto de código raíz + versión** de un material? (Es central para nuestra lógica de cambios; necesitamos entender cómo lo identifica SAP.)
-5. **¿Qué método de autenticación** soportan para un usuario de servicio de solo lectura (usuario/clave técnica, token/OAuth, certificado)?
-6. **¿Hace falta algo a nivel de red** (segmento, VPN, whitelist de IP) para que la app alcance el endpoint?
-7. **¿Existe un entorno de QA / réplica** contra el cual podamos desarrollar y probar antes de tocar producción?
+4. **¿Qué método de autenticación** soportan para un usuario de servicio de solo lectura (usuario/clave técnica, token/OAuth, certificado)?
+5. **¿Hace falta algo a nivel de red** (segmento, VPN, whitelist de IP) para que la app alcance el endpoint?
+6. **¿Existe un entorno de QA / réplica** contra el cual podamos desarrollar y probar antes de tocar producción?
 
 ---
 
@@ -54,12 +54,13 @@ Volumen, frecuencia y entorno de prueba ya están definidos de nuestro lado (ver
 - **Entorno:** preferimos desarrollar y probar contra QA/réplica antes de producción.
 - **Credenciales:** las almacenamos de forma segura de nuestro lado (secreto/variable de entorno, nunca en código). Pedimos un usuario de servicio dedicado de solo lectura, no un usuario personal.
 - **Filtro de alcance:** si se puede filtrar por grupo de artículos / tipo de material desde el origen, mejor; si no, filtramos packaging nosotros.
+- **Raíz + versión:** es un constructo de nuestros procedimientos, no de SAP. El alta de un código nuevo (o de una nueva versión) nace de un procedimiento interno; SAP solo guarda el código resultante como un identificador completo. La app deriva raíz y versión parseando ese código.
 
 ---
 
 ## 5. Resumen del pedido
 
-Necesitamos que Sistemas nos responda **si la conexión de solo lectura es posible y por cuál método** (sección 3, puntos 1–2), y en caso afirmativo nos pase la **API/endpoint y acceso a un entorno de prueba** (puntos 3, 5–7), más una aclaración sobre el **modelo de código raíz + versión** (punto 4). Con eso avanzamos del lado de la app.
+Necesitamos que Sistemas nos responda **si la conexión de solo lectura es posible y por cuál método** (sección 3, puntos 1–2), y en caso afirmativo nos pase la **API/endpoint y acceso a un entorno de prueba** (puntos 3–6). Con eso avanzamos del lado de la app.
 
 ---
 
