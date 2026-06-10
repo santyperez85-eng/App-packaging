@@ -79,10 +79,10 @@
       <h1>Resumen integral del sistema de control de desarrollo de packaging</h1>
       <p>Documento de contexto para continuar el proyecto en nuevos hilos de Codex/ChatGPT sin perder decisiones, arquitectura, lógica de negocio ni estado de avance. Está pensado para actualizarse en cada hito.</p>
       <div class="meta">
-        <div class="meta-card"><strong>Estado</strong>PM + Altas reales validadas</div>
+        <div class="meta-card"><strong>Estado</strong>PM + Altas + BOM/Recetas fase 1 + lifecycle read model validados</div>
         <div class="meta-card"><strong>Stack</strong>Next.js · Prisma · PostgreSQL · React</div>
-        <div class="meta-card"><strong>Último hito</strong>Adapter semántico de Alta de Mat validado</div>
-        <div class="meta-card"><strong>Próxima fuente</strong>BOM / estructura pre-SAP</div>
+        <div class="meta-card"><strong>Último hito</strong>Read model operativo por project_item</div>
+        <div class="meta-card"><strong>Próximo paso</strong>Consumir lifecycle en una primera vista operativa</div>
       </div>
     </header>
 
@@ -94,6 +94,8 @@
       <a href="#fuentes">Fuentes</a>
       <a href="#pm">PM real</a>
       <a href="#altas">Altas reales</a>
+      <a href="#bom">BOM/Recetas</a>
+      <a href="#lifecycle">Lifecycle</a>
       <a href="#scoring">Scoring</a>
       <a href="#validaciones">Validaciones</a>
       <a href="#decisiones">Decisiones</a>
@@ -113,6 +115,7 @@
             <li>Evitar seguimiento manual fragmentado entre Excel, SAP y Moondesk.</li>
             <li>Detectar faltantes antes de que se vuelvan bloqueos.</li>
             <li>Dar trazabilidad al proceso completo de packaging.</li>
+            <li>Reconstruir el lifecycle operativo real de cada componente desde sus evidencias.</li>
           </ul>
         </div>
         <div class="card">
@@ -144,6 +147,8 @@
     seed.ts
   src/
     app/
+      api/
+        project-items/[projectItemId]/lifecycle/
     components/
     lib/
     server/
@@ -188,7 +193,7 @@
         <tr><th>Fuente</th><th>Rol</th><th>Estado actual</th></tr>
         <tr><td>PM Excel</td><td>Define expectativa inicial del caso y componentes esperados.</td><td><span class="tag ok">Integrada y validada</span></td></tr>
         <tr><td>Planilla de altas de códigos</td><td>Evidencia operativa temprana de pedido/alta de código.</td><td><span class="tag ok">Integrada y validada</span></td></tr>
-        <tr><td>BOM / estructura pre-SAP</td><td>Evidencia de estructura operativa previa a SAP.</td><td><span class="tag warn">Próximo paso</span></td></tr>
+        <tr><td>BOM / estructura pre-SAP</td><td>Evidencia de estructura operativa previa a SAP.</td><td><span class="tag ok">Integrada fase 1</span></td></tr>
         <tr><td>Base interna de materiales</td><td>Consulta de registro técnico interno/materiales existentes.</td><td><span class="tag warn">Pendiente</span></td></tr>
         <tr><td>Moondesk</td><td>Circuito documental, tareas, revisión y aprobación.</td><td><span class="tag warn">Pendiente</span></td></tr>
         <tr><td>SAP</td><td>Formalización real: material, BOM, fase, estado y fechas.</td><td><span class="tag warn">Pendiente</span></td></tr>
@@ -201,15 +206,17 @@
       <h3>Reglas del parser PM</h3>
       <ul>
         <li>El archivo PM no es tabular. Es una matriz semi-estructurada con labels y bloques.</li>
-        <li>Se detecta la sheet válida por presencia de <code>Producto</code> + <code>Presentación</code>.</li>
+        <li>La sheet válida requiere <code>Producto</code>, <code>Presentación</code> y estructura PM operativa real.</li>
+        <li>Se excluyen hojas tipo <code>Forecast</code>, resumen, base, compras, AARR, producción y auxiliares por nombre y por estructura.</li>
         <li><code>Droga Activa</code> se captura cuando existe, pero no bloquea importación.</li>
         <li>Las hojas vacías o de plantilla se ignoran.</li>
+        <li><code>Caja</code> no significa <code>ESTUCHE</code>; caja queda como empaque terciario/logístico o nota contextual.</li>
         <li>Se preserva <code>rawData.rows</code> para parseos posteriores.</li>
       </ul>
       <h3>Derivación de componentes esperados desde PM</h3>
       <table>
         <tr><th>ComponentSlot</th><th>Señal utilizada</th></tr>
-        <tr><td>ESTUCHE</td><td>Label explícito Estuche/Caja con descripción.</td></tr>
+        <tr><td>ESTUCHE</td><td>Solo label explícito <code>EST.</code> o <code>ESTUCHE</code> con señal positiva. <code>Caja</code> no aplica.</td></tr>
         <tr><td>PROSPECTO</td><td>Fila SI/NO marcada positivamente para Prospecto/Info paciente.</td></tr>
         <tr><td>BLISTER</td><td>Toggle SI/NO o headers estructurados como Unid. X Blíster / Cant. Blíster.</td></tr>
         <tr><td>ALUMINIO</td><td>Descripción material real con aluminio/foil/alu.</td></tr>
@@ -286,8 +293,110 @@
       </table>
     </section>
 
+    <section id="bom">
+      <h2>7. Fuente 3 validada: BOM/Recetas fase 1</h2>
+      <div class="good-note">BOM/Recetas se interpreta como <strong>evidencia estructural pre-SAP</strong>. No representa SAP formal, maestro de materiales, pedido de código ni aprobación documental.</div>
+      <h3>Alcance de fase 1</h3>
+      <ul>
+        <li>Trabaja con <code>matchOnlyExpectedPmItems = true</code>.</li>
+        <li>No crea nuevos <code>project_items</code>.</li>
+        <li>No toca <code>MaterialRequest</code>, <code>MaterialsMaster</code>, <code>SapMaterial</code> ni <code>MoondeskTask</code>.</li>
+        <li>Solo resuelve <code>PRE_BOM_MISSING</code> cuando hay cobertura estructural confiable contra un item PM esperado.</li>
+        <li>No resuelve <code>CODE_NOT_REQUESTED</code>, <code>REQUEST_WITHOUT_FORMAL_MATERIAL</code> ni <code>APPROVED_DOCUMENT_MISSING</code>.</li>
+        <li>Si hay múltiples bloques BOM plausibles para el mismo slot PM, no elige por orden: deja revisión manual / confirmación pendiente.</li>
+        <li>Si una señal BOM contradice PM o Altas, debe generar inconsistencia o revisión manual; no sobrescribe datos.</li>
+        <li>Las evidencias BOM usan <code>ProjectItemEvidence.sourceRecordKey</code> compuesto estable generado por el adapter.</li>
+        <li>El <code>componentKey</code> queda como identificador legible interno del item BOM.</li>
+      </ul>
+      <h3>Reglas de dominio</h3>
+      <table>
+        <tr><th>Señal</th><th>Tratamiento fase 1</th></tr>
+        <tr><td><code>FRASCO</code> / <code>FCO</code></td><td>Puede cubrir un item PM esperado <code>FRASCO</code>.</td></tr>
+        <tr><td><code>BOMBA</code>, <code>TAPA</code>, <code>CUCHARA</code>, <code>ETIQ.</code></td><td>Subcomponentes/evidencia estructural o contexto asociado al <code>FRASCO</code>; no crean item separado en fase 1.</td></tr>
+        <tr><td><code>CAJA</code></td><td>Nota o contexto logístico. No significa <code>ESTUCHE</code>.</td></tr>
+        <tr><td><code>EST.</code> / <code>ESTUCHE</code></td><td>Solo se considera si PM derivó <code>ESTUCHE</code> como esperado.</td></tr>
+        <tr><td><code>GRANEL</code>, <code>TC</code>, operaciones, O/M</td><td>Ignorados para creación de items.</td></tr>
+      </table>
+      <h3>PerPiel Heridas Jabón</h3>
+      <table>
+        <tr><th>Aspecto</th><th>Resultado validado</th></tr>
+        <tr><td>PM válida</td><td><code>Venta Libre-FARMA</code></td></tr>
+        <tr><td>Item PM esperado</td><td><code>FRASCO</code></td></tr>
+        <tr><td>Bloque BOM</td><td><code>PERPIEL HERIDAS JABON x 250 ml (V)</code></td></tr>
+        <tr><td>Cobertura BOM</td><td><code>FRASCO</code> cubierto y <code>PRE_BOM_MISSING</code> resuelta</td></tr>
+        <tr><td>Subcomponentes</td><td><code>BOMBA JABON</code> asociada al <code>FRASCO</code></td></tr>
+        <tr><td>Notas</td><td><code>CAJA</code> queda como contexto logístico; no crea <code>ESTUCHE</code></td></tr>
+        <tr><td>Project items finales</td><td>1, sin duplicados</td></tr>
+      </table>
+      <h3>PerPiel Heridas Spray</h3>
+      <table>
+        <tr><th>Aspecto</th><th>Resultado validado</th></tr>
+        <tr><td>PM válida</td><td><code>Venta Libre-FARMA</code></td></tr>
+        <tr><td>Items PM esperados</td><td><code>FRASCO</code> + <code>PROSPECTO</code></td></tr>
+        <tr><td>Bloque BOM</td><td><code>PERPIEL HERIDAS x 40 ML (V)</code>, con alias/contexto manual desde <code>Desinfectante</code></td></tr>
+        <tr><td>Cobertura BOM</td><td><code>FRASCO</code> cubierto y <code>PRE_BOM_MISSING</code> resuelta</td></tr>
+        <tr><td>Pendiente</td><td><code>PROSPECTO</code> no recibe evidencia BOM y mantiene <code>PRE_BOM_MISSING</code></td></tr>
+        <tr><td>Subcomponentes</td><td><code>BOMBA + TAPA PERPIEL HERIDAS</code> asociada al <code>FRASCO</code>, incluso si aparece antes del <code>FCO</code> dentro del bloque</td></tr>
+        <tr><td>Ignorados</td><td><code>EST.PERPIEL HERIDAS</code>, <code>GRANEL</code>, <code>TC</code>, operaciones y O/M no crean items</td></tr>
+        <tr><td>Project items finales</td><td>2, sin <code>ESTUCHE</code> y sin duplicados</td></tr>
+      </table>
+      <h3>Magnesio en Polvo</h3>
+      <table>
+        <tr><th>Aspecto</th><th>Resultado validado</th></tr>
+        <tr><td>PM válida</td><td><code>Complemento Nutricional</code></td></tr>
+        <tr><td>Item PM esperado</td><td><code>FRASCO</code></td></tr>
+        <tr><td>Negaciones PM</td><td><code>Blíster = NO</code>, <code>Estuche = NO</code> y <code>Prospecto/Info paciente = NO</code> no crean items</td></tr>
+        <tr><td>Bloques BOM candidatos</td><td>2 bloques plausibles para <code>FRASCO</code>: filas 41-52 y 53-64</td></tr>
+        <tr><td>Criterio de selección</td><td>No hay bloque ganador confiable; el sistema no elige por orden</td></tr>
+        <tr><td>Cobertura BOM</td><td>No se genera evidencia BOM final para <code>FRASCO</code>; <code>PRE_BOM_MISSING</code> permanece activo</td></tr>
+        <tr><td>Subcomponentes/contexto</td><td><code>TAPA</code>, <code>CUCHARA</code> y <code>ETIQ.</code> quedan asociados al contexto de <code>FRASCO</code>, no como items</td></tr>
+        <tr><td>Ignorados</td><td><code>CAJA CARTON</code>, <code>GRANEL</code>, <code>TC</code>, O/M y operaciones no crean items</td></tr>
+        <tr><td>Project items finales</td><td>1, solo <code>FRASCO</code>, sin duplicados</td></tr>
+      </table>
+    </section>
+
+    <section id="lifecycle">
+      <h2>8. Lifecycle operativo por project_item</h2>
+      <div class="good-note">El lifecycle es un <strong>read model server-side</strong> sobre la información existente. No crea una nueva fuente, no cambia schema y no reemplaza reglas, matching ni scoring.</div>
+      <h3>Qué representa</h3>
+      <p>Reconstruye el estado operativo de un <code>project_item</code> a partir de expectativa PM, evidencias de altas, evidencias BOM/Recetas, alertas, readiness y status persistidos. Su objetivo es explicar dónde está parado un componente y por qué.</p>
+      <h3>Implementación</h3>
+      <table>
+        <tr><th>Pieza</th><th>Detalle</th></tr>
+        <tr><td>Servicio</td><td><code>src/server/services/project-item-lifecycle-service.ts</code></td></tr>
+        <tr><td>Endpoint</td><td><code>GET /api/project-items/:projectItemId/lifecycle</code></td></tr>
+        <tr><td>Runner</td><td><code>npm run validate:project-item-lifecycle</code></td></tr>
+        <tr><td>Alcance</td><td>Solo lectura. No integra SAP, Moondesk, maestro real ni aprobaciones.</td></tr>
+      </table>
+      <h3>Estructura del read model</h3>
+      <table>
+        <tr><th>Bloque</th><th>Uso operativo</th></tr>
+        <tr><td><code>milestones</code></td><td>Hitos por dimensión: expectativa, pedido de código, estructura pre-SAP, material formal y aprobación documental.</td></tr>
+        <tr><td><code>timeline</code></td><td>Secuencia operativa normalizada de eventos relevantes.</td></tr>
+        <tr><td><code>evidences</code></td><td>Evidencias primarias y secundarias asociadas al item, con fuente, clave trazable y payload resumido.</td></tr>
+        <tr><td><code>alerts</code></td><td>Alertas abiertas y resueltas que explican bloqueos o avances.</td></tr>
+        <tr><td><code>inconsistencies</code></td><td>Contradicciones o estados que requieren atención explícita.</td></tr>
+        <tr><td><code>reconstructionGaps</code></td><td>Huecos donde el estado final es correcto pero falta persistir más detalle para reconstrucción completa.</td></tr>
+      </table>
+      <h3>Orden operativo</h3>
+      <ol>
+        <li>PM_EXPECTED define expectativa y scope.</li>
+        <li>MaterialRequest indica pedido operativo temprano.</li>
+        <li>BOM/Recetas indica estructura pre-SAP confiable o ambigua.</li>
+        <li>Material formal, SAP y Moondesk quedan como hitos futuros.</li>
+        <li>Alertas y readiness explican el estado derivado actual.</li>
+      </ol>
+      <h3>Validaciones reales</h3>
+      <table>
+        <tr><th>Caso</th><th>Resultado validado</th></tr>
+        <tr><td>PYLOBER <code>ESTUCHE</code></td><td>Expectativa PM + pedido de código desde Alta de Mat. <code>CODE_NOT_REQUESTED</code> no queda abierto; el item sigue sin estructura pre-SAP ni aprobación documental.</td></tr>
+        <tr><td>PerPiel Spray <code>FRASCO</code></td><td>PM + BOM confiable. El hito <code>pre_sap_structure</code> queda parcial/cubierto por BOM; <code>PRE_BOM_MISSING</code> no queda abierto y aparece la alerta de confirmación pendiente cuando corresponde.</td></tr>
+        <tr><td>Magnesio <code>FRASCO</code></td><td>PM esperado con dos bloques BOM candidatos. No se genera evidencia BOM final, <code>PRE_BOM_MISSING</code> permanece y <code>reconstructionGaps</code> documenta que la ambigüedad de candidatos vive en diagnostics del adapter, no en el item persistido.</td></tr>
+      </table>
+    </section>
+
     <section id="scoring">
-      <h2>7. Reglas, scoring y alertas</h2>
+      <h2>9. Reglas, scoring y alertas</h2>
       <h3>Dimensiones de evaluación</h3>
       <ul>
         <li>Definición</li>
@@ -314,23 +423,29 @@
         <tr><td>REQUEST_WITHOUT_FORMAL_MATERIAL</td><td>Se activa cuando existe alta pero no maestro/SAP formal.</td></tr>
         <tr><td>Inconsistencias reales</td><td>CRITICAL.</td></tr>
       </table>
-      <h3>Estado luego de PM + Altas</h3>
+      <h3>Estado luego de PM + Altas + BOM/Recetas fase 1</h3>
       <ul>
-        <li><code>PRE_BOM_MISSING</code> persiste.</li>
+        <li><code>PRE_BOM_MISSING</code> se resuelve solo para items con cobertura estructural BOM confiable.</li>
+        <li>En PerPiel Spray, <code>FRASCO</code> queda cubierto y <code>PROSPECTO</code> sigue pendiente.</li>
+        <li>En Magnesio, <code>FRASCO</code> sigue con <code>PRE_BOM_MISSING</code> porque existen dos bloques BOM candidatos y no hay desempate confiable.</li>
         <li><code>APPROVED_DOCUMENT_MISSING</code> persiste.</li>
-        <li><code>REQUEST_WITHOUT_FORMAL_MATERIAL</code> aparece.</li>
+        <li><code>REQUEST_WITHOUT_FORMAL_MATERIAL</code> no se resuelve desde BOM/Recetas.</li>
         <li>El proyecto mejora, pero no puede cerrar.</li>
       </ul>
     </section>
 
     <section id="validaciones">
-      <h2>8. Runners y validaciones</h2>
+      <h2>10. Runners y validaciones</h2>
       <table>
         <tr><th>Comando</th><th>Propósito</th><th>Estado</th></tr>
         <tr><td><code>npm run validate:functional</code></td><td>Escenarios funcionales controlados.</td><td>8/8 OK</td></tr>
         <tr><td><code>npm run validate:pm-only</code></td><td>Validación PM real o fixture PM.</td><td>OK</td></tr>
         <tr><td><code>npm run validate:pm-plus-altas</code></td><td>Fixture PM + altas.</td><td>OK</td></tr>
         <tr><td><code>npm run validate:alta-mat-real</code></td><td>Alta de Mat real con PYLOBER.</td><td>OK</td></tr>
+        <tr><td><code>npm run validate:perpiel-pm-bom</code></td><td>PerPiel Jabón PM + BOM/Recetas en schema desechable.</td><td>OK</td></tr>
+        <tr><td><code>npm run validate:perpiel-spray-pm-bom</code></td><td>PerPiel Spray PM + BOM/Recetas en schema desechable.</td><td>OK</td></tr>
+        <tr><td><code>npm run validate:magnesio-pm-bom</code></td><td>Magnesio PM + BOM/Recetas; valida ambigüedad sin crear duplicados.</td><td>OK</td></tr>
+        <tr><td><code>npm run validate:project-item-lifecycle</code></td><td>Read model operativo por item con PYLOBER ESTUCHE, PerPiel Spray FRASCO y Magnesio FRASCO.</td><td>OK</td></tr>
         <tr><td><code>npm run lint</code></td><td>Validación técnica de lint.</td><td>OK</td></tr>
       </table>
       <h3>QA / observabilidad interna</h3>
@@ -342,16 +457,22 @@
     </section>
 
     <section id="decisiones">
-      <h2>9. Decisiones de diseño ya tomadas</h2>
+      <h2>11. Decisiones de diseño ya tomadas</h2>
       <ul class="status-list">
         <li>No usar tabla plana para PM.</li>
         <li>PM gobierna la expectativa.</li>
         <li>Altas son evidencia temprana, no maestro ni SAP.</li>
+        <li>BOM/Recetas es evidencia estructural pre-SAP, no SAP formal ni maestro.</li>
         <li>No crear nuevos project_items desde Alta de Mat en esta etapa.</li>
+        <li>No crear nuevos project_items desde BOM/Recetas en esta etapa.</li>
         <li>Scope gobernado por PM: <code>matchOnlyExpectedPmItems = true</code>.</li>
         <li>Separar componente funcional de material del componente.</li>
+        <li>No elegir bloques BOM por orden cuando hay múltiples candidatos plausibles para el mismo slot.</li>
+        <li><code>CAJA</code> no significa <code>ESTUCHE</code>; caja es empaque terciario/logístico.</li>
         <li>Conservar <code>originMode = PM_EXPECTED</code> cuando una fuente posterior matchea contra un item PM.</li>
         <li>No subir a <code>IDENTIFIED</code> sin maestro/SAP confiable.</li>
+        <li>Usar <code>sourceRecordKey</code> compuesto estable para evidencias BOM/Recetas.</li>
+        <li>El lifecycle por item es un read model derivado, no una nueva fuente ni una tabla persistida.</li>
         <li>Usar parsers/adapters semánticos para planillas reales sucias.</li>
         <li>Validar cada fuente contra archivo real antes de avanzar a la siguiente.</li>
       </ul>
@@ -362,16 +483,17 @@
     </section>
 
     <section id="pendiente">
-      <h2>10. Qué queda por hacer</h2>
-      <h3>Próxima fuente: BOM / estructura pre-SAP</h3>
-      <p>Es la siguiente fuente lógica porque hoy siguen activas alertas como <code>PRE_BOM_MISSING</code>. Esta fuente debe aportar evidencia de estructura operativa previa a SAP, pero no debe confundirse con SAP formal.</p>
-      <h4>Objetivos de la integración BOM / pre-SAP</h4>
+      <h2>12. Qué queda por hacer</h2>
+      <h3>Próximo paso: vista operativa de lifecycle</h3>
+      <p>El read model ya permite consumir estado consolidado por <code>project_item</code>. La siguiente capa debería ser una primera vista simple que muestre milestones, timeline, evidencias, alertas, inconsistencias y reconstruction gaps sin introducir nueva lógica de negocio en UI.</p>
+      <h3>Próximo paso: desempate BOM</h3>
+      <p>Magnesio ya validó el comportamiento conservador ante ambigüedad. El siguiente paso no es crear más items, sino definir cuándo dos bloques/versiones BOM pueden consolidarse o cuándo uno puede ganar de forma confiable.</p>
+      <h4>Objetivos antes de resolver Magnesio automáticamente</h4>
       <ul class="pending">
-        <li>Entender estructura real de la planilla BOM.</li>
-        <li>Detectar si existe estructura operativa para los componentes esperados.</li>
-        <li>Separar estructura pre-SAP de BOM formal SAP.</li>
-        <li>Resolver o reducir <code>PRE_BOM_MISSING</code>.</li>
-        <li>No crear maestro ni SAP formal desde esta fuente.</li>
+        <li>Definir criterio de selección de bloque/version BOM para productos con múltiples candidatos.</li>
+        <li>Confirmar cómo asociar <code>TAPA</code>, <code>CUCHARA</code> y eventuales accesorios al componente principal sin crear slots nuevos.</li>
+        <li>Validar que <code>Blister NO</code>, <code>Estuche No</code> y <code>Prospecto NO</code> no creen expectativas.</li>
+        <li>Mantener <code>matchOnlyExpectedPmItems = true</code> y evitar duplicados.</li>
       </ul>
       <h3>Fuentes pendientes posteriores</h3>
       <table>
@@ -386,19 +508,24 @@
         <li>El caso <code>ALUMINIO</code> puede mezclarse con material de blister. Vigilar con más casos reales.</li>
         <li>El parser de PM detecta lo necesario, pero no conviene expandirlo sin nuevos casos.</li>
         <li>El parser de Alta de Mat funciona para PYLOBER; validar más adelante con otros productos.</li>
+        <li>El adapter BOM/Recetas fase 1 está validado con PerPiel Jabón, Spray y Magnesio; Magnesio mantiene <code>PRE_BOM_MISSING</code> por ambigüedad real de bloques.</li>
+        <li>El lifecycle reconstruye desde evidencias persistidas. Para casos ambiguos como Magnesio, los detalles finos de candidatos BOM todavía dependen de diagnostics del adapter y no quedan completos en el item persistido.</li>
         <li>La lógica de scoring está calibrada con pocas fuentes. No sobreoptimizar todavía.</li>
         <li>Evitar que futuros adapters creen project_items fuera del scope PM sin revisión explícita.</li>
       </ul>
     </section>
 
     <section id="siguiente">
-      <h2>11. Mensaje recomendado para el próximo hilo</h2>
+      <h2>13. Mensaje recomendado para el próximo hilo</h2>
       <pre><code>Contexto:
-Ya tengo integrado y validado PM real y Alta de Mat real.
+Ya tengo integrado y validado PM real, Alta de Mat real y BOM/Recetas fase 1.
+Tambien esta implementado un read model server-side de lifecycle operativo por project_item.
 
 PM:
 - 1 workbook = 1 caso
 - deriva expectativa de componentes
+- selector corregido: no acepta Forecast ni hojas auxiliares aunque tengan Producto/Presentación
+- CAJA no significa ESTUCHE
 - caso PYLOBER validado con ESTUCHE, PROSPECTO, BLISTER, ALUMINIO
 
 Altas:
@@ -409,15 +536,26 @@ Altas:
 - matchOnlyExpectedPmItems = true
 - PYLOBER validado con 4 material_requests y 0 duplicados
 
-Quiero integrar la tercera fuente real: planilla de estructura BOM / pre-SAP.
+BOM/Recetas:
+- fase 1 implementada como evidencia estructural pre-SAP
+- no crea project_items
+- no toca SAP, maestro, MaterialRequest ni Moondesk
+- resuelve PRE_BOM_MISSING solo con cobertura estructural confiable
+- evidencias BOM usan sourceRecordKey compuesto estable
+- PerPiel Jabón validado: FRASCO cubierto, BOMBA subcomponente, CAJA nota, sin ESTUCHE
+- PerPiel Spray validado: FRASCO + PROSPECTO desde PM; BOM cubre FRASCO; PROSPECTO queda pendiente; BOMBA+TAPA subcomponente
+- Magnesio validado como caso ambiguo: PM espera solo FRASCO; hay dos bloques BOM candidatos; TAPA, CUCHARA y ETIQ. quedan como subcomponentes/contexto; no se elige por orden; PRE_BOM_MISSING permanece
+
+Lifecycle:
+- servicio: src/server/services/project-item-lifecycle-service.ts
+- endpoint: GET /api/project-items/:projectItemId/lifecycle
+- estructura: milestones, timeline, evidences, alerts, inconsistencies, reconstructionGaps
+- validado con PYLOBER ESTUCHE, PerPiel Spray FRASCO y Magnesio FRASCO
+- es solo lectura: no toca schema ni integra SAP/Moondesk/material master
 
 No implementar todavía.
-Primero diseñar:
-1. cómo modelar esta fuente en el pipeline actual
-2. qué campos mínimos extraer
-3. cómo mapear contra project_items existentes
-4. cómo impacta en status, readinessScore, alertas y healthScore
-5. cómo testear sin romper PM + altas</code></pre>
+Próximo paso:
+Diseñar la primera vista operativa que consuma el lifecycle por project_item sin mover lógica de negocio al frontend.</code></pre>
     </section>
 
     <footer>
