@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { StatusBadge } from "@/components/ui/status-badge";
 
 type ProjectItemsTableProps = {
@@ -36,7 +38,9 @@ export function ProjectItemsTable({ items, showProject = false }: ProjectItemsTa
             <tr key={item.id}>
               {showProject ? <td>{item.project?.code ?? "Sin proyecto"}</td> : null}
               <td>
-                <div>{item.itemKey}</div>
+                <Link className="table-link" href={`/project-items/${item.id}`}>
+                  {item.itemKey}
+                </Link>
                 <div className="table-subtitle">{item.name}</div>
               </td>
               <td>
