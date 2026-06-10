@@ -132,14 +132,22 @@ Modelo conceptual:
 - PerPiel Heridas Jabon (`PM-PERPIEL-HERIDAS-JABON-250-ML`): `FRASCO` con las 3 fuentes (PM + alta `EXXX/70` + BOM); `CODE_NOT_REQUESTED` y `PRE_BOM_MISSING` resueltos.
 - PerPiel Heridas Spray (`PM-DESINFECTANTE-40-ML`): altas capturadas con token `PERPIEL HERIDAS` + exclusiones (4 candidatos FRASCO, 10 filas hermanas excluidas); `code_request` partial; PROSPECTO sigue sin evidencia.
 - Magnesio (`PM-MAGNESIO-EN-POLVO-150GR`): alta `ED28/70` matcheada; ambiguedad BOM de 2 bloques preservada (`PRE_BOM_MISSING` activo).
-- Observacion abierta: filas `TC.` (tecnica de control) pueden clasificar como FRASCO por descripcion (ej. `TC.ETIQUETADO FRASCO x 40 ML` quedo como material request del FRASCO del Spray); decidir si se excluyen de la clasificacion packaging.
+- Resuelto: filas `TC.` (tecnica de control) no son packaging y quedan excluidas de la clasificacion (confirmado por negocio).
 
 ## Vista de lifecycle
 - Implementada en `/project-items/:id` consumiendo el read model server-side; sin logica de negocio en frontend.
 - Los item keys de la tabla de Project Items linkean a la vista.
 
+## Revision manual
+- Implementada en `/review` con tres colas: pedidos de codigo en competencia (varios material_request evidencian el mismo item), confirmaciones `PRE_BOM_PENDING_CONFIRMATION`, y evidencias `AMBIGUOUS`/`MANUAL_REVIEW`.
+- Las decisiones manuales son durables ante re-importacion y re-consolidacion:
+  - Vinculo canonico de pedido de codigo: `materialRequestLockedAt` + `manualLinkNote` en `project_items`; la consolidacion no pisa el vinculo mientras este lockeado.
+  - Alerta resuelta a mano: `manuallyResolved` + `resolutionNote`; la regla no la reabre mientras la condicion siga igual. Si la condicion sana, la marca se limpia y un re-disparo futuro reabre.
+  - Evidencia confirmada: `manualMatchStatus` (+nota +fecha) convive con el `matchStatus` calculado; los read models usan el efectivo (manual ?? calculado).
+- Validado con el caso real del Spray: 3 altas competian por el FRASCO, se eligio `EXXX/70` y el vinculo sobrevivio a una re-corrida completa del ciclo.
+
 ## Proximo paso
-Pantalla de revision manual de matching: resolver casos `AMBIGUOUS` / `MANUAL_REVIEW` y confirmaciones pendientes de BOM desde la UI, sin tocar la base a mano.
+Decidir entre: edicion basica de estados de items desde la UI, o arrancar el contrato real de Moondesk (P1 de fase 1). Las 3 confirmaciones pre-SAP pendientes (Creatina, Jabon, Spray) son decisiones operativas reales que estan esperando en `/review`.
 
 ## Restricciones vigentes
 - No integrar SAP todavia.

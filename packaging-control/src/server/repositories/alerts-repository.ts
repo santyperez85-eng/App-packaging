@@ -28,7 +28,7 @@ export const alertsRepository = {
     });
   },
 
-  upsertRuleAlert(params: {
+  async upsertRuleAlert(params: {
     projectId?: string | null;
     projectItemId: string;
     type: string;
@@ -38,6 +38,31 @@ export const alertsRepository = {
     ruleCode: string;
     metadata?: Prisma.InputJsonValue;
   }) {
+    const existing = await prisma.alert.findUnique({
+      where: {
+        projectItemId_ruleCode: {
+          projectItemId: params.projectItemId,
+          ruleCode: params.ruleCode
+        }
+      }
+    });
+
+    // Una resolucion manual sobrevive mientras la condicion siga igual:
+    // se refresca el contenido pero no se reabre la alerta.
+    if (existing?.manuallyResolved && existing.status === AlertStatus.RESOLVED) {
+      return prisma.alert.update({
+        where: { id: existing.id },
+        data: {
+          projectId: params.projectId ?? null,
+          type: params.type,
+          title: params.title,
+          message: params.message,
+          severity: params.severity,
+          metadata: params.metadata
+        }
+      });
+    }
+
     return prisma.alert.upsert({
       where: {
         projectItemId_ruleCode: {
@@ -68,8 +93,8 @@ export const alertsRepository = {
     });
   },
 
-  resolveMissingRuleAlerts(projectItemId: string, activeRuleCodes: string[]) {
-    return prisma.alert.updateMany({
+  async resolveMissingRuleAlerts(projectItemId: string, activeRuleCodes: string[]) {
+    const resolved = await prisma.alert.updateMany({
       where: {
         projectItemId,
         status: AlertStatus.OPEN,
@@ -87,5 +112,23 @@ export const alertsRepository = {
         resolvedAt: new Date()
       }
     });
+
+    // Si la condicion dejo de cumplirse, la marca manual ya no es necesaria:
+    // un futuro re-disparo de la regla debe reabrir la alerta.
+    await prisma.alert.updateMany({
+      where: {
+        projectItemId,
+        manuallyResolved: true,
+        ruleCode: {
+          not: null,
+          notIn: activeRuleCodes
+        }
+      },
+      data: {
+        manuallyResolved: false
+      }
+    });
+
+    return resolved;
   }
 };

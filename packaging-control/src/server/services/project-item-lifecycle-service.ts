@@ -237,34 +237,36 @@ function buildMilestones(item: LifecycleRecord): LifecycleMilestone[] {
   ];
 }
 
+function effectiveMatchStatus(evidence: LifecycleRecord["evidences"][number]) {
+  return evidence.manualMatchStatus ?? evidence.matchStatus;
+}
+
+function mapEvidence(evidence: LifecycleRecord["evidences"][number]) {
+  return {
+    id: evidence.id,
+    sourceType: evidence.sourceType,
+    sourceRecordKey: evidence.sourceRecordKey,
+    rawLabel: evidence.rawLabel,
+    matchRule: evidence.matchRule,
+    matchConfidence: evidence.matchConfidence,
+    matchStatus: effectiveMatchStatus(evidence),
+    computedMatchStatus: evidence.matchStatus,
+    manualMatchStatus: evidence.manualMatchStatus,
+    manualNote: evidence.manualNote,
+    manualDecidedAt: evidence.manualDecidedAt?.toISOString() ?? null,
+    lastSeenAt: evidence.lastSeenAt?.toISOString() ?? null,
+    createdAt: evidence.createdAt.toISOString()
+  };
+}
+
 function buildEvidenceGroups(item: LifecycleRecord) {
   return {
     primary: item.evidences
       .filter((evidence) => evidence.isPrimary || evidence.sourceType === "pm_expected")
-      .map((evidence) => ({
-        id: evidence.id,
-        sourceType: evidence.sourceType,
-        sourceRecordKey: evidence.sourceRecordKey,
-        rawLabel: evidence.rawLabel,
-        matchRule: evidence.matchRule,
-        matchConfidence: evidence.matchConfidence,
-        matchStatus: evidence.matchStatus,
-        lastSeenAt: evidence.lastSeenAt?.toISOString() ?? null,
-        createdAt: evidence.createdAt.toISOString()
-      })),
+      .map(mapEvidence),
     secondary: item.evidences
       .filter((evidence) => !evidence.isPrimary && evidence.sourceType !== "pm_expected")
-      .map((evidence) => ({
-        id: evidence.id,
-        sourceType: evidence.sourceType,
-        sourceRecordKey: evidence.sourceRecordKey,
-        rawLabel: evidence.rawLabel,
-        matchRule: evidence.matchRule,
-        matchConfidence: evidence.matchConfidence,
-        matchStatus: evidence.matchStatus,
-        lastSeenAt: evidence.lastSeenAt?.toISOString() ?? null,
-        createdAt: evidence.createdAt.toISOString()
-      }))
+      .map(mapEvidence)
   };
 }
 
@@ -357,7 +359,11 @@ function buildEvents(item: LifecycleRecord): LifecycleEvent[] {
 
 function buildInconsistencies(item: LifecycleRecord) {
   const evidenceReview = item.evidences
-    .filter((evidence) => evidence.matchStatus === MatchingStatus.AMBIGUOUS || evidence.matchStatus === MatchingStatus.MANUAL_REVIEW)
+    .filter((evidence) => {
+      const status = effectiveMatchStatus(evidence);
+
+      return status === MatchingStatus.AMBIGUOUS || status === MatchingStatus.MANUAL_REVIEW;
+    })
     .map((evidence) => ({
       key: "evidence_match_requires_review",
       severity: "WARNING",

@@ -319,6 +319,8 @@ model ProjectItem {
   requiresTechnicalDocs    Boolean                  @default(true)
   expectedMaterialCode     String?
   versioningRecommendation VersioningRecommendation @default(NO_SIGNAL)
+  materialRequestLockedAt  DateTime?
+  manualLinkNote           String?
   createdAt                DateTime                 @default(now())
   updatedAt                DateTime                 @updatedAt
   project                  Project                  @relation(fields: [projectId], references: [id])
@@ -348,6 +350,9 @@ model ProjectItemEvidence {
   matchRule       String?
   matchConfidence MatchConfidence @default(MEDIUM)
   matchStatus     MatchingStatus  @default(MANUAL_REVIEW)
+  manualMatchStatus MatchingStatus?
+  manualNote        String?
+  manualDecidedAt   DateTime?
   isPrimary       Boolean         @default(false)
   lastSeenAt      DateTime?
   rawLabel        String?
@@ -495,6 +500,8 @@ model Alert {
   dueDate      DateTime?
   metadata     Json?
   resolvedAt   DateTime?
+  manuallyResolved Boolean @default(false)
+  resolutionNote   String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   project      Project?      @relation(fields: [projectId], references: [id])

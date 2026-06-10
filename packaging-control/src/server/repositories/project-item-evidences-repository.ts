@@ -96,5 +96,21 @@ export const projectItemEvidencesRepository = {
       where: { projectItemId },
       orderBy: [{ isPrimary: "desc" }, { updatedAt: "desc" }]
     });
+  },
+
+  setManualMatchDecision(params: {
+    evidenceId: string;
+    manualMatchStatus: MatchingStatus | null;
+    note?: string | null;
+  }) {
+    return prisma.projectItemEvidence.update({
+      where: { id: params.evidenceId },
+      data: {
+        // manualMatchStatus null = retirar la decision y volver al estado calculado.
+        manualMatchStatus: params.manualMatchStatus,
+        manualNote: params.manualMatchStatus ? (params.note ?? null) : null,
+        manualDecidedAt: params.manualMatchStatus ? new Date() : null
+      }
+    });
   }
 };

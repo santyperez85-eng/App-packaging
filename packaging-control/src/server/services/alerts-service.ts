@@ -66,12 +66,16 @@ export const alertsService = {
     });
   },
 
-  async resolveAlert(alertId: string) {
+  async resolveAlert(alertId: string, options?: { manual?: boolean; note?: string | null }) {
     const alert = await prisma.alert.update({
       where: { id: alertId },
       data: {
         status: AlertStatus.RESOLVED,
-        resolvedAt: new Date()
+        resolvedAt: new Date(),
+        // La marca manual evita que la proxima consolidacion reabra la alerta
+        // mientras la condicion subyacente siga igual.
+        manuallyResolved: options?.manual ?? false,
+        resolutionNote: options?.note ?? null
       }
     });
 

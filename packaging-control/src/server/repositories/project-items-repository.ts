@@ -11,6 +11,32 @@ import {
 
 import { prisma } from "@/lib/prisma";
 
+type ProjectItemUpsertParams = {
+  projectId: string;
+  itemKey: string;
+  name: string;
+  description?: string | null;
+  componentSlot?: ComponentSlot;
+  applicabilityStatus?: ApplicabilityStatus;
+  originMode?: ProjectItemOriginMode;
+  provisional?: boolean;
+  expectedStatus?: ProjectItemExpectedStatus;
+  identificationStatus?: ProjectItemIdentificationStatus;
+  matchingStatus?: MatchingStatus;
+  provisionalCode?: string | null;
+  itemType?: Prisma.ProjectItemUncheckedCreateInput["itemType"];
+  criticality?: Prisma.ProjectItemUncheckedCreateInput["criticality"];
+  status?: ProjectItemStatus;
+  readinessScore?: number;
+  bomItemId?: string | null;
+  materialRequestId?: string | null;
+  materialMasterId?: string | null;
+  expectedMaterialCode?: string | null;
+  requiresApprovedDocument?: boolean;
+  requiresMaterialCode?: boolean;
+  requiresTechnicalDocs?: boolean;
+};
+
 export const projectItemsRepository = {
   list(where: Prisma.ProjectItemWhereInput = {}) {
     return prisma.projectItem.findMany({
@@ -51,31 +77,19 @@ export const projectItemsRepository = {
     });
   },
 
-  upsert(params: {
-    projectId: string;
-    itemKey: string;
-    name: string;
-    description?: string | null;
-    componentSlot?: ComponentSlot;
-    applicabilityStatus?: ApplicabilityStatus;
-    originMode?: ProjectItemOriginMode;
-    provisional?: boolean;
-    expectedStatus?: ProjectItemExpectedStatus;
-    identificationStatus?: ProjectItemIdentificationStatus;
-    matchingStatus?: MatchingStatus;
-    provisionalCode?: string | null;
-    itemType?: Prisma.ProjectItemUncheckedCreateInput["itemType"];
-    criticality?: Prisma.ProjectItemUncheckedCreateInput["criticality"];
-    status?: ProjectItemStatus;
-    readinessScore?: number;
-    bomItemId?: string | null;
-    materialRequestId?: string | null;
-    materialMasterId?: string | null;
-    expectedMaterialCode?: string | null;
-    requiresApprovedDocument?: boolean;
-    requiresMaterialCode?: boolean;
-    requiresTechnicalDocs?: boolean;
-  }) {
+  async upsert(params: ProjectItemUpsertParams) {
+    const existing = await prisma.projectItem.findUnique({
+      where: {
+        projectId_itemKey: {
+          projectId: params.projectId,
+          itemKey: params.itemKey
+        }
+      },
+      select: { materialRequestLockedAt: true }
+    });
+    // Un vinculo de pedido de codigo decidido a mano no se pisa en re-consolidaciones.
+    const materialRequestLocked = Boolean(existing?.materialRequestLockedAt);
+
     const updateData: Prisma.ProjectItemUpdateInput = {
       name: params.name
     };
@@ -94,7 +108,7 @@ export const projectItemsRepository = {
     if (params.status !== undefined) updateData.status = params.status;
     if (params.readinessScore !== undefined) updateData.readinessScore = params.readinessScore;
     if (params.bomItemId !== undefined) updateData.bomItem = params.bomItemId ? { connect: { id: params.bomItemId } } : { disconnect: true };
-    if (params.materialRequestId !== undefined) {
+    if (params.materialRequestId !== undefined && !materialRequestLocked) {
       updateData.materialRequest = params.materialRequestId
         ? { connect: { id: params.materialRequestId } }
         : { disconnect: true };
@@ -153,6 +167,20 @@ export const projectItemsRepository = {
       data: {
         status,
         readinessScore
+      }
+    });
+  },
+
+  setManualMaterialRequestLink(params: { projectItemId: string; materialRequestId: string | null; note?: string | null }) {
+    return prisma.projectItem.update({
+      where: { id: params.projectItemId },
+      data: {
+        materialRequest: params.materialRequestId
+          ? { connect: { id: params.materialRequestId } }
+          : { disconnect: true },
+        // materialRequestId null = desbloquear y volver al matching automatico.
+        materialRequestLockedAt: params.materialRequestId ? new Date() : null,
+        manualLinkNote: params.note ?? null
       }
     });
   }

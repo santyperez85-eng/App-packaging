@@ -268,6 +268,8 @@ function buildAlertRecord(projectId: string, itemId: string, alert: RuleAlertSee
     dueDate: null,
     metadata: alert.metadata ?? null,
     resolvedAt: null,
+    manuallyResolved: false,
+    resolutionNote: null,
     createdAt: EVALUATION_DATE,
     updatedAt: EVALUATION_DATE,
     project: null,

@@ -5,6 +5,7 @@ const navigation = [
   { href: "/", label: "Vista ejecutiva" },
   { href: "/projects", label: "Proyectos" },
   { href: "/project-items", label: "Project Items" },
+  { href: "/review", label: "Revisión" },
   { href: "/alerts", label: "Alertas" }
 ];
 
