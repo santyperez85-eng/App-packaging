@@ -164,12 +164,19 @@ Modelo conceptual:
 - Adapter: `src/server/etl/moondesk-times-report.ts`. Servicio: `moondeskReportService.applyTimesReports`. Endpoint: `POST /api/imports/moondesk-times`.
 - Validado con PYLOBER: tarea 254 (Estuche) => 2 revisiones de SFIGUEROA (17 y 11 dias), diseno 10 / revision 17 / cierre 3, subtareas 3. Idempotente (6 reviews estables).
 
+## Dashboard ejecutivo
+- La home suma el "Pipeline operativo": cobertura agregada de los 5 hitos sobre todos los componentes, con barra segmentada (cubierto / parcial / faltante) y conteos.
+- La cobertura se calcula solo sobre los componentes a los que el hito aplica. Si no aplica a ninguno (ej. material formal mientras SAP esta fuera de fase) muestra `n/a`, no 0%: un 0% seria enganoso.
+- Tabla "Componentes trabados": ordenada por readiness ascendente, indica el primer hito faltante en orden operativo (donde esta trabado cada componente) y linkea al lifecycle.
+- `dashboard-service.getPipelineSnapshot()` reutiliza `buildMilestones` del lifecycle service (exportado junto con `LIFECYCLE_MILESTONE_INCLUDE`) para que la semantica de hitos tenga una sola fuente de verdad.
+- Se removieron las dos tarjetas de texto estatico de la home que describian fases y "stubs" de Moondesk/SAP (ya desactualizadas).
+
 ## SAP (pendiente de Sistemas)
 - Documento de requerimientos para el sector de sistemas en `docs/sap-integration-requirements.md`. Integracion de solo lectura del maestro de materiales; opciones de conexion en orden de preferencia (OData/REST, RFC/BAPI, vista de BD, export programado).
 - Queda a la espera de que Sistemas confirme factibilidad y pase la API si existe.
 
 ## Proximo paso
-A la espera de: (1) respuesta de Sistemas sobre conexion SAP, (2) API real de Moondesk. Mientras tanto (sin depender de terceros): edicion basica de estados de items desde la UI, o mejoras de la vista ejecutiva/dashboard.
+A la espera de: (1) respuesta de Sistemas sobre conexion SAP, (2) API real de Moondesk. Mientras tanto (sin depender de terceros): edicion basica de estados de items desde la UI, o vista de pipeline por proyecto (hoy el pipeline es global).
 
 ## Restricciones vigentes
 - SAP: a la espera de Sistemas (ver docs/sap-integration-requirements.md). No conectar hasta tener respuesta.

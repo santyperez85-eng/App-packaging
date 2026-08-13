@@ -299,7 +299,29 @@ export const mockData = {
       criticalAlerts: 2
     },
     atRiskProjects: projects.filter((project) => project.healthScore < 60 || project.status === ProjectStatus.BLOCKED),
-    recentAlerts: alerts
+    recentAlerts: alerts,
+    pipeline: {
+      itemsEvaluated: 0,
+      stages: [] as Array<{
+        key: string;
+        label: string;
+        ready: number;
+        partial: number;
+        missing: number;
+        notApplicable: number;
+        total: number;
+        coveragePercent: number | null;
+      }>,
+      blockedItems: [] as Array<{
+        id: string;
+        itemKey: string;
+        name: string;
+        projectCode: string;
+        readinessScore: number;
+        status: string;
+        firstMissingMilestone: string;
+      }>
+    }
   },
   projects,
   projectItems,

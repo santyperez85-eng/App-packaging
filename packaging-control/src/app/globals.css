@@ -456,6 +456,109 @@ ul {
   gap: 10px;
 }
 
+.pipeline-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.pipeline-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface-strong);
+}
+
+.pipeline-stage header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pipeline-stage h3 {
+  font-size: 0.98rem;
+}
+
+.pipeline-stage__percent {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.pipeline-stage__percent--success {
+  color: var(--success);
+}
+
+.pipeline-stage__percent--warning {
+  color: var(--warning);
+}
+
+.pipeline-stage__percent--danger {
+  color: var(--danger);
+}
+
+.pipeline-stage__percent--neutral {
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+
+.pipeline-bar {
+  display: flex;
+  gap: 3px;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+}
+
+.pipeline-bar__segment {
+  display: block;
+  border-radius: 999px;
+}
+
+.pipeline-bar__segment--ready {
+  background: var(--success);
+}
+
+.pipeline-bar__segment--partial {
+  background: var(--warning);
+}
+
+.pipeline-bar__segment--missing {
+  background: var(--danger);
+}
+
+.pipeline-bar__segment--na {
+  background: rgba(96, 119, 143, 0.24);
+}
+
+.pipeline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 0;
+}
+
+.pipeline-legend > div {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.pipeline-legend dt {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.pipeline-legend dd {
+  margin: 0;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
 .review-card {
   display: flex;
   flex-direction: column;
@@ -650,7 +753,8 @@ ul {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .milestone-grid {
+  .milestone-grid,
+  .pipeline-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -685,7 +789,8 @@ ul {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .milestone-grid {
+  .milestone-grid,
+  .pipeline-grid {
     grid-template-columns: 1fr;
   }
 

@@ -14,6 +14,23 @@ type LifecycleRecord = Prisma.ProjectItemGetPayload<{
   };
 }>;
 
+/**
+ * Includes necesarios para calcular milestones. Se exporta para que otros read
+ * models (ej. el pipeline del dashboard) usen la misma logica de milestones en
+ * vez de duplicarla.
+ */
+export const LIFECYCLE_MILESTONE_INCLUDE = {
+  project: true,
+  bomItem: true,
+  materialRequest: true,
+  materialMaster: true,
+  evidences: true,
+  alerts: true,
+  moondeskTasks: { include: { documents: true, reviews: true } }
+} as const satisfies Prisma.ProjectItemInclude;
+
+export type LifecycleMilestoneRecord = LifecycleRecord;
+
 type LifecycleEventKind =
   | "EXPECTATION_DEFINED"
   | "CODE_REQUESTED"
@@ -23,7 +40,7 @@ type LifecycleEventKind =
   | "ALERT_RESOLVED"
   | "CURRENT_STATE";
 
-type LifecycleMilestoneStatus =
+export type LifecycleMilestoneStatus =
   | "ready"
   | "partial"
   | "missing"
@@ -45,7 +62,7 @@ type LifecycleEvent = {
   metadata?: Record<string, unknown>;
 };
 
-type LifecycleMilestone = {
+export type LifecycleMilestone = {
   key: string;
   label: string;
   status: LifecycleMilestoneStatus;
@@ -204,7 +221,7 @@ function buildDocumentationApprovalMilestone(item: LifecycleRecord): LifecycleMi
   };
 }
 
-function buildMilestones(item: LifecycleRecord): LifecycleMilestone[] {
+export function buildMilestones(item: LifecycleRecord): LifecycleMilestone[] {
   const pmEvidence = evidenceFor(item, "pm_expected");
   const requestEvidence = evidenceFor(item, "material_request");
   const bomEvidence = evidenceFor(item, "bom");
@@ -629,10 +646,7 @@ export const projectItemLifecycleService = {
     const item = await prisma.projectItem.findUnique({
       where: { id: projectItemId },
       include: {
-        project: true,
-        bomItem: true,
-        materialRequest: true,
-        materialMaster: true,
+        ...LIFECYCLE_MILESTONE_INCLUDE,
         evidences: {
           orderBy: [{ sourceType: "asc" }, { sourceRecordKey: "asc" }]
         },
