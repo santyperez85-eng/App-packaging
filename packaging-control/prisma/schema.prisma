@@ -457,6 +457,12 @@ model MoondeskTask {
   approvedVersionAvailable Boolean           @default(false)
   comments                 Json?
   sourceUpdatedAt          DateTime?
+  sourceTaskNumber         String?
+  reprocessCount           Int?
+  subtaskCount             Int?
+  designDays               Float?
+  reviewDays               Float?
+  closeDays                Float?
   createdAt                DateTime          @default(now())
   updatedAt                DateTime          @updatedAt
   projectItem              ProjectItem       @relation(fields: [projectItemId], references: [id])
@@ -465,6 +471,7 @@ model MoondeskTask {
   documents                MoondeskDocument[]
 
   @@index([projectItemId, taskType])
+  @@index([sourceTaskNumber])
   @@map("moondesk_tasks")
 }
 
@@ -549,10 +556,14 @@ model MoondeskVersion {
 model MoondeskReview {
   id             String         @id @default(cuid())
   moondeskTaskId String
+  sourceStepKey  String?        @unique
   reviewer       String?
+  role           String?
   decision       ReviewDecision @default(PENDING)
   dueDate        DateTime?
+  startedAt      DateTime?
   reviewedAt     DateTime?
+  workingDays    Float?
   comments       String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt

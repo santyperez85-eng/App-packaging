@@ -72,7 +72,7 @@ function EvidenceList({ entries, emptyLabel }: { entries: EvidenceEntry[]; empty
 }
 
 export function ProjectItemLifecycleView({ lifecycle }: { lifecycle: LifecycleReadModel }) {
-  const { project, item, derivedState, milestones, evidences, timeline, alerts, inconsistencies, reconstructionGaps } =
+  const { project, item, derivedState, milestones, evidences, timeline, alerts, inconsistencies, reconstructionGaps, documentation } =
     lifecycle;
 
   return (
@@ -214,6 +214,70 @@ export function ProjectItemLifecycleView({ lifecycle }: { lifecycle: LifecycleRe
           <p className="muted-text">El item no tiene alertas asociadas.</p>
         )}
       </SectionCard>
+
+      {documentation ? (
+        <SectionCard
+          title="Documentación y aprobación (Moondesk)"
+          description="Revisiones, versiones y métricas de proceso importadas de los reportes de Moondesk."
+        >
+          <div className="stats-grid stats-grid--four">
+            <StatCard label="Revisiones" value={documentation.metrics.reviewCount} />
+            <StatCard label="Reprocesos" value={documentation.metrics.reprocessCount ?? "—"} accent={documentation.metrics.reprocessCount ? "warning" : "default"} />
+            <StatCard label="Días de revisión" value={documentation.metrics.reviewDays ?? "—"} />
+            <StatCard label="Días de diseño" value={documentation.metrics.designDays ?? "—"} />
+          </div>
+
+          {documentation.reviews.length ? (
+            <div className="table-wrap" style={{ marginTop: "16px" }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Revisor</th>
+                    <th>Rol</th>
+                    <th>Decisión</th>
+                    <th>Días hábiles</th>
+                    <th>Inicio</th>
+                    <th>Fin</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {documentation.reviews.map((review, index) => (
+                    <tr key={`${review.reviewer}:${index}`}>
+                      <td>{review.reviewer ?? "Sin revisor"}</td>
+                      <td>{review.role ?? "—"}</td>
+                      <td>
+                        <StatusBadge label={review.decision} />
+                      </td>
+                      <td>{review.workingDays ?? "—"}</td>
+                      <td>{formatDate(review.startedAt)}</td>
+                      <td>{formatDate(review.reviewedAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="muted-text">Sin revisiones registradas en Moondesk para este item.</p>
+          )}
+
+          <div className="list-stack" style={{ marginTop: "16px" }}>
+            {documentation.tasks.map((task, index) => (
+              <div key={`${task.sourceTaskNumber}:${index}`} className="list-row">
+                <div>
+                  <div className="list-row__title">{task.title}</div>
+                  <div className="list-row__subtitle">
+                    {task.documents.map((document) => `${document.documentType}${document.approved ? " ✓" : ""}`).join(" · ") || "Sin documentos"}
+                  </div>
+                </div>
+                <div className="list-row__meta">
+                  <StatusBadge label={task.taskStatus} />
+                  {task.latestVersionLabel ? <span className="metric-pill">v{task.latestVersionLabel}</span> : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      ) : null}
 
       <div className="grid-two">
         <SectionCard title="Inconsistencias" description="Señales que requieren revisión o atención operativa.">

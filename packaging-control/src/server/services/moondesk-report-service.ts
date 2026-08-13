@@ -15,6 +15,13 @@ import {
   type MoondeskApprovalState,
   type MoondeskTaskCandidate
 } from "@/server/etl/moondesk-tasks-report";
+import {
+  isReviewerRole,
+  parseTasksTimes,
+  parseUsersTasksTimes,
+  type MoondeskTaskTiming,
+  type MoondeskUserStep
+} from "@/server/etl/moondesk-times-report";
 import { projectItemEvidencesRepository } from "@/server/repositories/project-item-evidences-repository";
 import { projectItemsService } from "@/server/services/project-items-service";
 
@@ -136,7 +143,8 @@ export const moondeskReportService = {
           latestVersionLabel: candidate.row.latestVersion,
           reviewDecision: reviewDecisionFor(candidate.approvalState),
           approvedVersionAvailable: candidate.approved,
-          sourceUpdatedAt: approvedAt
+          sourceUpdatedAt: approvedAt,
+          sourceTaskNumber: candidate.row.taskNumber
         },
         create: {
           externalTaskId: externalId,
@@ -149,7 +157,8 @@ export const moondeskReportService = {
           latestVersionLabel: candidate.row.latestVersion,
           reviewDecision: reviewDecisionFor(candidate.approvalState),
           approvedVersionAvailable: candidate.approved,
-          sourceUpdatedAt: approvedAt
+          sourceUpdatedAt: approvedAt,
+          sourceTaskNumber: candidate.row.taskNumber
         }
       });
 
@@ -219,5 +228,112 @@ export const moondeskReportService = {
       itemsTouched: touchedItemIds.size,
       diagnostics
     };
+  },
+
+  /**
+   * Enriquece las MoondeskTask ya creadas (por el reporte Tasks) con los reportes
+   * de tiempos: metricas de proceso (subtareas, reprocesos, dias por fase) desde
+   * Tasks_Times, y trazabilidad de revisiones desde Users_Tasks_Times.
+   * Requiere que applyReport se haya corrido antes (necesita sourceTaskNumber).
+   */
+  async applyTimesReports(params: {
+    projectCode: string;
+    tasksTimesWorkbookPath?: string;
+    usersTasksTimesWorkbookPath?: string;
+  }) {
+    const project = await prisma.project.findUnique({
+      where: { code: params.projectCode },
+      select: { id: true, code: true }
+    });
+
+    if (!project) {
+      throw new Error(`Project not found: ${params.projectCode}`);
+    }
+
+    const tasks = await prisma.moondeskTask.findMany({
+      where: { projectItem: { projectId: project.id }, sourceTaskNumber: { not: null } }
+    });
+
+    const timingByTask: Map<string, MoondeskTaskTiming> = params.tasksTimesWorkbookPath
+      ? parseTasksTimes(params.tasksTimesWorkbookPath)
+      : new Map();
+    const stepsByTask: Map<string, MoondeskUserStep[]> = params.usersTasksTimesWorkbookPath
+      ? parseUsersTasksTimes(params.usersTasksTimesWorkbookPath)
+      : new Map();
+
+    let tasksEnriched = 0;
+    let reviewsUpserted = 0;
+
+    for (const task of tasks) {
+      const taskNumber = task.sourceTaskNumber;
+
+      if (!taskNumber) {
+        continue;
+      }
+
+      const timing = timingByTask.get(taskNumber);
+
+      if (timing) {
+        await prisma.moondeskTask.update({
+          where: { id: task.id },
+          data: {
+            subtaskCount: timing.subtaskCount,
+            reprocessCount: timing.reprocessCount,
+            designDays: timing.designDays,
+            reviewDays: timing.reviewDays,
+            closeDays: timing.closeDays
+          }
+        });
+        tasksEnriched += 1;
+      }
+
+      const steps = stepsByTask.get(taskNumber) ?? [];
+      const reviewSteps = steps.filter((step) => isReviewerRole(step.role));
+
+      for (const step of reviewSteps) {
+        const sourceStepKey = `moondesk-review:${task.id}:${step.stepIndex}`;
+        const decision =
+          normalizeReviewStatus(step.status) === "hecho" ? ReviewDecision.APPROVED : ReviewDecision.PENDING;
+
+        await prisma.moondeskReview.upsert({
+          where: { sourceStepKey },
+          update: {
+            moondeskTaskId: task.id,
+            reviewer: step.user,
+            role: step.role,
+            decision,
+            startedAt: step.startedAt,
+            reviewedAt: step.endedAt,
+            workingDays: step.workingDays
+          },
+          create: {
+            sourceStepKey,
+            moondeskTaskId: task.id,
+            reviewer: step.user,
+            role: step.role,
+            decision,
+            startedAt: step.startedAt,
+            reviewedAt: step.endedAt,
+            workingDays: step.workingDays
+          }
+        });
+        reviewsUpserted += 1;
+      }
+    }
+
+    return {
+      projectCode: project.code,
+      tasksConsidered: tasks.length,
+      tasksEnriched,
+      reviewsUpserted
+    };
   }
 };
+
+function normalizeReviewStatus(status: string | null) {
+  return (status ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+}

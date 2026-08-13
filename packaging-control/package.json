@@ -17,6 +17,7 @@
     "validate:project-item-lifecycle": "node --import tsx ./src/server/validation/run-project-item-lifecycle-validation.ts",
     "validate:full-cycle": "node --import tsx ./src/server/validation/run-full-cycle-pm-bom-altas-validation.ts",
     "validate:moondesk": "node --import tsx ./src/server/validation/run-moondesk-report-validation.ts",
+    "validate:moondesk-times": "node --import tsx ./src/server/validation/run-moondesk-times-validation.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",

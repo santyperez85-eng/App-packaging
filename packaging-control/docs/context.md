@@ -156,15 +156,23 @@ Modelo conceptual:
 - Validado con PYLOBER: 3 docs aprobados (Estuche `SE09/70`, Prospecto `SE10/70`, Aluminio `ED01/10`) => esos slots quedan `documentation_approval=ready` sin `APPROVED_DOCUMENT_MISSING`; el BLISTER (sin doc Moondesk) queda `missing`.
 - El milestone `documentation_approval` del lifecycle dejo de estar hardcodeado en `not_integrated`.
 
+## Moondesk enriquecimiento (reportes Times, validate:moondesk-times)
+- Segundo y tercer reporte integrados como enriquecimiento de las MoondeskTask ya creadas (vinculo por `sourceTaskNumber` = Numero de Tarea Moondesk). No vinculan items por si mismos.
+- `Tasks_Times` => metricas de proceso por tarea: subtareas, reprocesos y dias por fase (Diseno/Revision/Cierre, sumando la matriz por usuario). Se guardan en campos nuevos de `MoondeskTask` (reprocessCount, subtaskCount, designDays, reviewDays, closeDays).
+- `Users_Tasks_Times` => trazabilidad: los pasos con Rol=Revisor se materializan como `MoondeskReview` (reviewer, decision, dias habiles, inicio/fin). `sourceStepKey` estable => reimportar es idempotente.
+- El read model del lifecycle expone `documentation`: tareas, reviews ordenadas y metricas agregadas. La vista `/project-items/:id` muestra la seccion "Documentacion y aprobacion (Moondesk)".
+- Adapter: `src/server/etl/moondesk-times-report.ts`. Servicio: `moondeskReportService.applyTimesReports`. Endpoint: `POST /api/imports/moondesk-times`.
+- Validado con PYLOBER: tarea 254 (Estuche) => 2 revisiones de SFIGUEROA (17 y 11 dias), diseno 10 / revision 17 / cierre 3, subtareas 3. Idempotente (6 reviews estables).
+
 ## SAP (pendiente de Sistemas)
 - Documento de requerimientos para el sector de sistemas en `docs/sap-integration-requirements.md`. Integracion de solo lectura del maestro de materiales; opciones de conexion en orden de preferencia (OData/REST, RFC/BAPI, vista de BD, export programado).
 - Queda a la espera de que Sistemas confirme factibilidad y pase la API si existe.
 
 ## Proximo paso
-A la espera de: (1) respuesta de Sistemas sobre conexion SAP, (2) API real de Moondesk. Mientras tanto: integrar los reportes Tasks_Times / Users_Tasks_Times como enriquecimiento (metricas de proceso y trazabilidad de quien), o edicion basica de estados de items desde la UI.
+A la espera de: (1) respuesta de Sistemas sobre conexion SAP, (2) API real de Moondesk. Mientras tanto (sin depender de terceros): edicion basica de estados de items desde la UI, o mejoras de la vista ejecutiva/dashboard.
 
 ## Restricciones vigentes
 - SAP: a la espera de Sistemas (ver docs/sap-integration-requirements.md). No conectar hasta tener respuesta.
-- Moondesk: integrado solo via reporte Excel (Tasks). Tasks_Times y Users_Tasks_Times todavia no se consumen. La API real reemplazara la fuente cuando este lista.
+- Moondesk: integrado via reportes Excel (Tasks + Tasks_Times + Users_Tasks_Times). La API real reemplazara la fuente cuando este lista, manteniendo el servicio de aplicacion.
 - No crear slots canonicos nuevos sin decision explicita.
 - No expandir BOM a ciegas sin caso real y criterio de validacion.

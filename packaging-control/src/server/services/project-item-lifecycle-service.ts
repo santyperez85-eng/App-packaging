@@ -10,7 +10,7 @@ type LifecycleRecord = Prisma.ProjectItemGetPayload<{
     materialMaster: true;
     evidences: true;
     alerts: true;
-    moondeskTasks: { include: { documents: true } };
+    moondeskTasks: { include: { documents: true; reviews: true } };
   };
 }>;
 
@@ -558,7 +558,69 @@ function buildLifecycleReadModel(item: LifecycleRecord) {
         resolvedAt: alert.resolvedAt?.toISOString() ?? null
       })),
     inconsistencies: buildInconsistencies(item),
-    reconstructionGaps: buildReconstructionGaps(item)
+    reconstructionGaps: buildReconstructionGaps(item),
+    documentation: buildDocumentationDetail(item)
+  };
+}
+
+function buildDocumentationDetail(item: LifecycleRecord) {
+  const tasks = item.moondeskTasks;
+
+  if (!tasks.length) {
+    return null;
+  }
+
+  const reviews = tasks
+    .flatMap((task) => task.reviews)
+    .sort((left, right) => {
+      const leftTime = left.startedAt?.getTime() ?? left.createdAt.getTime();
+      const rightTime = right.startedAt?.getTime() ?? right.createdAt.getTime();
+
+      return leftTime - rightTime;
+    })
+    .map((review) => ({
+      reviewer: review.reviewer,
+      role: review.role,
+      decision: review.decision,
+      workingDays: review.workingDays,
+      startedAt: review.startedAt?.toISOString() ?? null,
+      reviewedAt: review.reviewedAt?.toISOString() ?? null
+    }));
+
+  const sumMetric = (pick: (task: LifecycleRecord["moondeskTasks"][number]) => number | null) => {
+    const values = tasks.map(pick).filter((value): value is number => typeof value === "number");
+
+    return values.length ? values.reduce((total, value) => total + value, 0) : null;
+  };
+
+  return {
+    tasks: tasks.map((task) => ({
+      title: task.title,
+      taskStatus: task.taskStatus,
+      sourceTaskNumber: task.sourceTaskNumber,
+      approvedVersionAvailable: task.approvedVersionAvailable,
+      latestVersionLabel: task.latestVersionLabel,
+      reprocessCount: task.reprocessCount,
+      subtaskCount: task.subtaskCount,
+      designDays: task.designDays,
+      reviewDays: task.reviewDays,
+      closeDays: task.closeDays,
+      documents: task.documents.map((document) => ({
+        name: document.name,
+        documentType: document.documentType,
+        approved: document.approved,
+        versionLabel: document.versionLabel
+      }))
+    })),
+    reviews,
+    metrics: {
+      reprocessCount: sumMetric((task) => task.reprocessCount),
+      subtaskCount: sumMetric((task) => task.subtaskCount),
+      designDays: sumMetric((task) => task.designDays),
+      reviewDays: sumMetric((task) => task.reviewDays),
+      closeDays: sumMetric((task) => task.closeDays),
+      reviewCount: reviews.length
+    }
   };
 }
 
@@ -578,7 +640,7 @@ export const projectItemLifecycleService = {
           orderBy: [{ status: "asc" }, { severity: "desc" }, { ruleCode: "asc" }]
         },
         moondeskTasks: {
-          include: { documents: true }
+          include: { documents: true, reviews: { orderBy: [{ startedAt: "asc" }] } }
         }
       }
     });
