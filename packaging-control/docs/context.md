@@ -188,9 +188,18 @@ Modelo conceptual:
 ## Proximo paso
 A la espera de: (1) respuesta de Sistemas sobre conexion SAP, (2) API real de Moondesk. Mientras tanto (sin depender de terceros): edicion basica de estados de items desde la UI.
 
-## Fuente PM en SharePoint/OneDrive (a definir)
-- Las planillas PM viven en una carpeta compartida de SharePoint/OneDrive. Para que la app las lea sola (boton "Actualizar" o al abrir) hace falta registrar una app en Azure AD / Entra ID con permisos de Microsoft Graph (`Files.Read.All` o `Sites.Selected`) y consentimiento de administrador: es un pedido a Sistemas, igual que SAP.
-- Alternativas sin Azure AD: (a) sincronizar la carpeta con el cliente de OneDrive y que la app lea del filesystem local, (b) subida manual del archivo por la UI. La (a) permite el boton "Actualizar" sin depender de nadie.
+## Fuente PM en SharePoint/OneDrive
+Carpeta real (verificada 2026-08-14): OneDrive de cgrosso compartido, `Documents/Información Base Moléculas/`, en `bernabo-my.sharepoint.com`. Estructura `<PRODUCTO>/<Producto> - Planilla base Molécula.xlsx`, mas planos PDF y POS en la misma subcarpeta.
+
+**Hallazgo de alcance: la carpeta tiene 39 subcarpetas de producto.** Hoy el sistema procesa 4 (Creatina, PerPiel Jabon, PerPiel Spray, Magnesio) + PYLOBER de fixture. Ejemplos sin procesar: SEMAGLUTIDE (3 presentaciones), VALSARTAN, VALSARTAN-HIDRO, PARAZETA (3 variantes), TRAMADOL, VONOPRAZAN, ACIDO BEMPEDOICO, AMIXEN, EXOGASTEC, CLOMIFEM, ODO/FLUORDENT, SERUM FACIAL AQUA, CONTORNO DE OJOS.
+
+Que puede hacer cada actor:
+- **El asistente en el chat**: leer la carpeta y el contenido de las planillas con el conector de Microsoft ya autenticado (sirve para inspeccionar, validar formato de un PM nuevo, detectar productos). El contenido llega como texto tabulado por hoja, no como binario `.xlsx`, asi que no alimenta directo a los adapters que usan `XLSX.readFile`.
+- **La app**: no puede usar esa conexion. Para un boton "Actualizar" necesita su propia autenticacion contra Microsoft Graph: registro en Azure AD / Entra ID (client id + secret), permisos `Files.Read.All` o preferentemente `Sites.Selected`, y consentimiento de administrador. Es un pedido a Sistemas, igual que SAP.
+
+Alternativa que funciona sin Azure AD (recomendada para arrancar): sincronizar la carpeta compartida con el cliente de OneDrive en la maquina donde corre la app; queda como carpeta local y los adapters actuales la leen tal cual. El boton "Actualizar" recorre esa ruta, detecta cambios por fecha de modificacion e importa lo que cambio.
+
+Nota de diseno: conviene boton explicito (o job diario) antes que releer al abrir la app; re-consolidar 39 productos en cada apertura es caro y conviene ver que cambio antes de aplicar.
 
 ## Restricciones vigentes
 - SAP: a la espera de Sistemas (ver docs/sap-integration-requirements.md). No conectar hasta tener respuesta.
