@@ -181,11 +181,16 @@ Modelo conceptual:
 - `PipelineStagesCard` se exporta aparte de `PipelinePanel` para compartir las barras entre ambas vistas.
 - Verificado: la suma de los pipelines por proyecto coincide exactamente con el global en los 5 hitos (9 componentes). PYLOBER muestra documentacion 75% (3 de 4) frente al 33% global, que era justamente el dato que la vista agregada escondia.
 
-## Hallazgo pendiente (preexistente)
-- En `projectsRepository.findById` las `alerts` del proyecto se traen sin `include` de `projectItem`, asi que la tabla "Alertas abiertas" de la pagina de proyecto muestra "Sin proyecto / Sin item". Se pierde a que componente corresponde cada alerta. Arreglo chico: agregar el include y ocultar la columna Proyecto en ese contexto.
+## Alertas con item asociado (resuelto)
+- `projectsRepository.findById` ahora incluye `projectItem` en las alertas del proyecto, asi que la tabla dice a que componente corresponde cada alerta en vez de "Sin item".
+- `AlertsTable` toma `showProject` (la columna Proyecto se oculta dentro de un proyecto) y linkea el item a su lifecycle. En `/alerts` la columna Item pasa a mostrar el `itemKey` clickeable en lugar del nombre largo.
 
 ## Proximo paso
-A la espera de: (1) respuesta de Sistemas sobre conexion SAP, (2) API real de Moondesk. Mientras tanto (sin depender de terceros): arreglar el include de alertas del proyecto (ver hallazgo), o edicion basica de estados de items desde la UI.
+A la espera de: (1) respuesta de Sistemas sobre conexion SAP, (2) API real de Moondesk. Mientras tanto (sin depender de terceros): edicion basica de estados de items desde la UI.
+
+## Fuente PM en SharePoint/OneDrive (a definir)
+- Las planillas PM viven en una carpeta compartida de SharePoint/OneDrive. Para que la app las lea sola (boton "Actualizar" o al abrir) hace falta registrar una app en Azure AD / Entra ID con permisos de Microsoft Graph (`Files.Read.All` o `Sites.Selected`) y consentimiento de administrador: es un pedido a Sistemas, igual que SAP.
+- Alternativas sin Azure AD: (a) sincronizar la carpeta con el cliente de OneDrive y que la app lea del filesystem local, (b) subida manual del archivo por la UI. La (a) permite el boton "Actualizar" sin depender de nadie.
 
 ## Restricciones vigentes
 - SAP: a la espera de Sistemas (ver docs/sap-integration-requirements.md). No conectar hasta tener respuesta.

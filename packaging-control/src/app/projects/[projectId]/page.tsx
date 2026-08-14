@@ -105,7 +105,7 @@ export default async function ProjectDetailPage({
       </div>
 
       <SectionCard title="Alertas abiertas" description="Inconsistencias y bloqueos del proyecto.">
-        <AlertsTable alerts={project.alerts} />
+        <AlertsTable alerts={project.alerts} showProject={false} />
       </SectionCard>
     </div>
   );

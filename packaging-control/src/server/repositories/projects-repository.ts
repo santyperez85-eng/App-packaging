@@ -64,6 +64,13 @@ export const projectsRepository = {
         },
         alerts: {
           where: { status: "OPEN" },
+          // Sin el item asociado la tabla de alertas no puede decir a que
+          // componente corresponde cada una.
+          include: {
+            projectItem: {
+              select: { id: true, itemKey: true, name: true }
+            }
+          },
           orderBy: [{ severity: "desc" }, { createdAt: "desc" }]
         }
       }

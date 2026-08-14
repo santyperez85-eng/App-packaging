@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { StatusBadge } from "@/components/ui/status-badge";
 
 function formatDate(value?: Date | string | null) {
@@ -13,19 +15,21 @@ type AlertsTableProps = {
     severity: string;
     status: string;
     project?: { code: string } | null;
-    projectItem?: { name: string } | null;
+    projectItem?: { id?: string | null; itemKey?: string | null; name: string } | null;
     createdAt: Date;
   }>;
+  /** La columna Proyecto es redundante cuando la tabla ya esta dentro de uno. */
+  showProject?: boolean;
 };
 
-export function AlertsTable({ alerts }: AlertsTableProps) {
+export function AlertsTable({ alerts, showProject = true }: AlertsTableProps) {
   return (
     <div className="table-wrap">
       <table className="data-table">
         <thead>
           <tr>
             <th>Alerta</th>
-            <th>Proyecto</th>
+            {showProject ? <th>Proyecto</th> : null}
             <th>Item</th>
             <th>Severidad</th>
             <th>Estado</th>
@@ -39,8 +43,20 @@ export function AlertsTable({ alerts }: AlertsTableProps) {
                 <div>{alert.title}</div>
                 <div className="table-subtitle">{alert.message}</div>
               </td>
-              <td>{alert.project?.code ?? "Sin proyecto"}</td>
-              <td>{alert.projectItem?.name ?? "Sin item"}</td>
+              {showProject ? <td>{alert.project?.code ?? "Sin proyecto"}</td> : null}
+              <td>
+                {alert.projectItem ? (
+                  alert.projectItem.id ? (
+                    <Link className="table-link" href={`/project-items/${alert.projectItem.id}`}>
+                      {alert.projectItem.itemKey ?? alert.projectItem.name}
+                    </Link>
+                  ) : (
+                    (alert.projectItem.itemKey ?? alert.projectItem.name)
+                  )
+                ) : (
+                  <span className="muted-text">Alerta de proyecto</span>
+                )}
+              </td>
               <td>
                 <StatusBadge label={alert.severity} />
               </td>
