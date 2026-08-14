@@ -55,7 +55,8 @@ async function main() {
             productFolder: candidate.productFolder,
             fileName: candidate.fileName,
             modifiedAt: candidate.modifiedAt.toISOString(),
-            sizeBytes: candidate.sizeBytes
+            sizeBytes: candidate.sizeBytes,
+            nameLooksCanonical: candidate.nameLooksCanonical
           })),
           ignored: discovery.ignored
         },

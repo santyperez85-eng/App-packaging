@@ -15,8 +15,16 @@ type ImportOutcome =
   | { status: "imported"; projectCode: string; itemsCreated: number }
   | { status: "skipped_existing"; projectCode: string }
   | { status: "superseded_version"; projectCode: string; supersededBy: string }
+  /**
+   * Mismo projectCode que un archivo de OTRA carpeta de producto: no son
+   * versiones, es una planilla con la identidad sin actualizar (copiada de otro
+   * producto). Requiere correccion en el origen.
+   */
+  | { status: "identity_conflict"; projectCode: string; conflictsWith: string; conflictingFolder: string | null }
   | { status: "no_project_code" }
   | { status: "failed"; error: string };
+
+type SeenProject = { fileName: string; productFolder: string | null };
 
 export type PmFolderImportResult = {
   rootDir: string;
@@ -36,6 +44,7 @@ export type PmFolderImportResult = {
     imported: number;
     skippedExisting: number;
     supersededVersions: number;
+    identityConflicts: number;
     failed: number;
     withoutProjectCode: number;
   };
@@ -104,8 +113,15 @@ export const pmFolderImportService = {
       : discovery.candidates;
 
     const processed: PmFolderImportResult["processed"] = [];
-    const seenProjectCodes = new Map<string, string>();
-    const summary = { imported: 0, skippedExisting: 0, supersededVersions: 0, failed: 0, withoutProjectCode: 0 };
+    const seenProjectCodes = new Map<string, SeenProject>();
+    const summary = {
+      imported: 0,
+      skippedExisting: 0,
+      supersededVersions: 0,
+      identityConflicts: 0,
+      failed: 0,
+      withoutProjectCode: 0
+    };
 
     for (const candidate of selected) {
       if (options?.limit && processed.length >= options.limit) {
@@ -131,6 +147,9 @@ export const pmFolderImportService = {
         case "superseded_version":
           summary.supersededVersions += 1;
           break;
+        case "identity_conflict":
+          summary.identityConflicts += 1;
+          break;
         case "failed":
           summary.failed += 1;
           break;
@@ -155,7 +174,7 @@ export const pmFolderImportService = {
 
   async importCandidate(
     candidate: PmWorkbookCandidate,
-    seenProjectCodes: Map<string, string>,
+    seenProjectCodes: Map<string, SeenProject>,
     force: boolean
   ): Promise<ImportOutcome> {
     let batchId: string | null = null;
@@ -176,10 +195,21 @@ export const pmFolderImportService = {
       const alreadySeen = seenProjectCodes.get(projectCode);
 
       if (alreadySeen) {
-        // Otro archivo mas reciente ya cubrio este proyecto: no consolidar.
+        // Otro archivo mas reciente ya cubrio este projectCode: no consolidar.
         await prisma.importPmRow.deleteMany({ where: { batchId: payload.batchId } });
 
-        return { status: "superseded_version", projectCode, supersededBy: alreadySeen };
+        // Si viene de otra carpeta de producto no son versiones del mismo PM:
+        // alguna de las dos planillas tiene la identidad sin actualizar.
+        if (alreadySeen.productFolder !== candidate.productFolder) {
+          return {
+            status: "identity_conflict",
+            projectCode,
+            conflictsWith: alreadySeen.fileName,
+            conflictingFolder: alreadySeen.productFolder
+          };
+        }
+
+        return { status: "superseded_version", projectCode, supersededBy: alreadySeen.fileName };
       }
 
       if (!force) {
@@ -187,14 +217,14 @@ export const pmFolderImportService = {
 
         if (existing) {
           await prisma.importPmRow.deleteMany({ where: { batchId: payload.batchId } });
-          seenProjectCodes.set(projectCode, candidate.fileName);
+          seenProjectCodes.set(projectCode, { fileName: candidate.fileName, productFolder: candidate.productFolder });
 
           return { status: "skipped_existing", projectCode };
         }
       }
 
       await consolidationService.consolidatePendingImports();
-      seenProjectCodes.set(projectCode, candidate.fileName);
+      seenProjectCodes.set(projectCode, { fileName: candidate.fileName, productFolder: candidate.productFolder });
 
       const itemsCreated = await prisma.projectItem.count({
         where: { project: { code: projectCode } }

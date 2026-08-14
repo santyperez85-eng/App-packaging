@@ -17,12 +17,34 @@ import { normalizeText } from "@/lib/utils";
  * tarde, con el projectCode que sale del contenido de la planilla.
  */
 
-// Un nombre es candidato a PM si menciona la "base de molecula" en cualquiera
-// de las variantes vistas ("Planilla base Molécula", "Información base de molecula").
-const PM_NAME_HINTS = ["planilla base molecula", "informacion base de molecula", "informacion base molecula"];
+/**
+ * El nombre NO alcanza para decidir si un xlsx es PM: en la carpeta real
+ * convive `Perpiel Heridas Spray - Planilla base Molécula.xlsx` con
+ * `Creatina en Polvo.xlsx`, `Magnesio en Polvo 150gr.xlsx` o
+ * `Planilla Base Geles de Niños.xlsx`, todos PM validos. Por eso el nombre se
+ * usa solo para descartar ruido evidente y la inclusion la decide el contenido
+ * (el selector de hoja PM exige producto, presentacion y estructura real).
+ */
+const NON_PM_HINTS = [
+  "forecast",
+  "precios",
+  "parametros costeo",
+  "parametro costeo",
+  "costeo",
+  "costo estimado",
+  "scoring",
+  "no usar",
+  "venta y mm"
+];
 
-// Archivos que viven en las mismas carpetas y no son PM.
-const NON_PM_HINTS = ["forecast", "precios", "parametros costeo", "parametro costeo", "costeo", "scoring"];
+// Señal de que el nombre sigue una de las convenciones canonicas. No filtra:
+// sirve como diagnostico y para priorizar en el desempate.
+const CANONICAL_NAME_HINTS = [
+  "planilla base molecula",
+  "planilla base",
+  "informacion base de molecula",
+  "informacion base molecula"
+];
 
 export type PmWorkbookCandidate = {
   filePath: string;
@@ -31,6 +53,8 @@ export type PmWorkbookCandidate = {
   productFolder: string | null;
   modifiedAt: Date;
   sizeBytes: number;
+  /** El nombre sigue una convencion conocida de PM. Solo informativo. */
+  nameLooksCanonical: boolean;
 };
 
 export type PmSourceDiscovery = {
@@ -49,27 +73,27 @@ function includesAny(haystack: string, needles: string[]) {
   return needles.some((needle) => haystack.includes(needle));
 }
 
-function classifyFile(fileName: string) {
+function classifyFile(fileName: string): { isCandidate: boolean; reason: string; nameLooksCanonical: boolean } {
   // Archivos temporales que Excel deja abiertos.
   if (fileName.startsWith("~$")) {
-    return { isCandidate: false, reason: "excel_lock_file" };
+    return { isCandidate: false, reason: "excel_lock_file", nameLooksCanonical: false };
   }
 
   if (path.extname(fileName).toLowerCase() !== ".xlsx") {
-    return { isCandidate: false, reason: "not_xlsx" };
+    return { isCandidate: false, reason: "not_xlsx", nameLooksCanonical: false };
   }
 
   const normalized = normalizeForMatch(path.basename(fileName, path.extname(fileName)));
 
   if (includesAny(normalized, NON_PM_HINTS)) {
-    return { isCandidate: false, reason: "not_pm_by_name" };
+    return { isCandidate: false, reason: "not_pm_by_name", nameLooksCanonical: false };
   }
 
-  if (!includesAny(normalized, PM_NAME_HINTS)) {
-    return { isCandidate: false, reason: "name_does_not_look_like_pm" };
-  }
-
-  return { isCandidate: true, reason: "pm_name_match" };
+  return {
+    isCandidate: true,
+    reason: "candidate_pending_content_check",
+    nameLooksCanonical: includesAny(normalized, CANONICAL_NAME_HINTS)
+  };
 }
 
 export function discoverPmWorkbooks(rootDir: string): PmSourceDiscovery {
@@ -123,7 +147,8 @@ export function discoverPmWorkbooks(rootDir: string): PmSourceDiscovery {
         fileName: entry.name,
         productFolder,
         modifiedAt: stats.mtime,
-        sizeBytes: stats.size
+        sizeBytes: stats.size,
+        nameLooksCanonical: classification.nameLooksCanonical
       });
     }
   }
@@ -136,7 +161,16 @@ export function discoverPmWorkbooks(rootDir: string): PmSourceDiscovery {
     filesScanned,
     // Mas reciente primero: si dos archivos resultan ser el mismo proyecto,
     // el primero en procesarse gana y los siguientes quedan como version anterior.
-    candidates: candidates.sort((left, right) => right.modifiedAt.getTime() - left.modifiedAt.getTime()),
+    // A igual fecha desempata el nombre canonico, que es la fuente mas confiable.
+    candidates: candidates.sort((left, right) => {
+      const byDate = right.modifiedAt.getTime() - left.modifiedAt.getTime();
+
+      if (byDate !== 0) {
+        return byDate;
+      }
+
+      return Number(right.nameLooksCanonical) - Number(left.nameLooksCanonical);
+    }),
     ignored
   };
 }

@@ -207,10 +207,21 @@ Tres cosas que rompen el supuesto "una carpeta = un PM":
 2. **Una carpeta puede tener varios PM**, y no siempre significan lo mismo: PARAZETA tiene `- 1 gr` y `- 500 mg` (productos distintos, dos proyectos legitimos), mientras AMIXEN SUSPENSIONES tiene `v1`, `v2` y `14;1` (versiones del mismo).
 3. **Hay xlsx que no son PM** en las mismas carpetas: `FORECAST ...`, `Precios ...`, `Parametros Costeo ...`.
 
+### Carga masiva real (2026-08-14)
+Carpeta sincronizada en `~/Library/CloudStorage/OneDrive-SharedLibraries-LaboratoriosBernaboSA/Constanza Grosso - Información Base Moléculas` (el boton correcto en la vista clasica de OneDrive es **Sincronizar**, no "Agregar acceso directo"). Los mtime se preservan al sincronizar, asi que el desempate por fecha es confiable.
+
+Resultado sobre 40 carpetas / 65 archivos: **44 proyectos y 101 componentes** importados (antes 4 y 5), 1 version superada, 2 conflictos de identidad, 1 fallo. Dashboard carga en ~0.1 s con 101 componentes.
+
+**Problemas de calidad de datos detectados en el origen** (accionables, no son bugs del sistema):
+1. Las dos planillas de ACIDO BEMPEDOICO (`- DISCOL -` y `-EZETIMIBE DISCOL PLUS -`) tienen `Producto = PYLOBER`: se copiaron de PYLOBER sin actualizar la identidad. Consecuencia: los dos productos de acido bempedoico no entran y desplazan al PYLOBER real. Hay que corregir el campo Producto en esas dos planillas.
+2. `SITAGLIPTINA .../Información base de molecula Met+Sita.xlsx` no importa: la hoja MEDICINAL tiene Producto pero no Presentacion. El otro archivo de la carpeta si entra (`PM-SIGLIBER-XXXXX`), pero ese codigo con `XXXXX` muestra que la presentacion quedo sin completar.
+3. `AMIXEN SUSPENSIONES` tiene el producto escrito de dos formas (`AMIXEN SUSPENCIONES` con C y `AMIXEN CLAVULANICO SUSPENSIONES`), asi que genera dos proyectos en lugar de uno.
+
 ### Importador de carpeta (import:pm-folder)
-- `discoverPmWorkbooks(rootDir)` recorre un nivel de subcarpetas con matcher de nombre flexible (ambas convenciones) y excluye forecast/precios/costeo/scoring y los lock files `~$`. Devuelve candidatos ordenados por fecha de modificacion descendente.
+- `discoverPmWorkbooks(rootDir)` recorre un nivel de subcarpetas. **El nombre no decide la inclusion**: hay PM validos llamados `Creatina en Polvo.xlsx`, `Magnesio en Polvo 150gr.xlsx` o `Planilla Base Geles de Niños.xlsx`, asi que filtrar por convencion perdia 7 productos. El nombre solo excluye ruido evidente (forecast, precios, costeo, "costo estimado", "no usar", "venta y mm", lock files `~$`) y marca `nameLooksCanonical` como diagnostico; la inclusion la decide el contenido via el selector de hoja PM. Candidatos ordenados por fecha de modificacion descendente.
 - `pmFolderImportService.importFromFolder` importa cada candidato de forma aislada: un archivo que falla se reporta y no aborta la corrida ni deja staging pendiente.
 - El desempate de versiones no usa heuristica de nombres: como el `projectCode` sale del contenido (producto + presentacion), dos archivos del mismo producto colisionan en el mismo codigo y gana el mas reciente; el resto queda `superseded_version`. Los productos distintos (PARAZETA 1 gr vs 500 mg) resuelven a codigos distintos y entran los dos.
+- **`identity_conflict` vs `superseded_version`**: si los archivos que colisionan estan en la *misma* carpeta son versiones (normal). Si estan en carpetas *distintas* no son versiones: alguna planilla tiene la identidad sin actualizar, y se reporta aparte porque requiere correccion en el origen (caso ACIDO BEMPEDOICO/PYLOBER).
 - Por defecto saltea proyectos que ya existen (`skipped_existing`), asi que re-correr es barato e idempotente; `--force` reimporta. Flags: `--dry-run`, `--limit=N`, `--product=TEXTO`.
 - Ruta configurable por argumento o `PM_SOURCE_DIR`; nada hardcodeado.
 - Verificado contra una carpeta que replica la estructura real: 4 importados, 1 `superseded_version` (Magnesio v1 detras de v2), forecast y costeo ignorados, PDF ignorado en silencio; segunda corrida 0 importados / 4 salteados sin duplicar.
