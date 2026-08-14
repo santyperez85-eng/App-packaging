@@ -201,6 +201,20 @@ Alternativa que funciona sin Azure AD (recomendada para arrancar): sincronizar l
 
 Nota de diseno: conviene boton explicito (o job diario) antes que releer al abrir la app; re-consolidar 39 productos en cada apertura es caro y conviene ver que cambio antes de aplicar.
 
+### Estructura real de la carpeta (inspeccionada 2026-08-14)
+Tres cosas que rompen el supuesto "una carpeta = un PM":
+1. **El nombre de archivo no sigue una sola convencion**: coexisten `<Producto> - Planilla base Molécula.xlsx` y `Información base de molecula - <PRODUCTO>.xlsx`.
+2. **Una carpeta puede tener varios PM**, y no siempre significan lo mismo: PARAZETA tiene `- 1 gr` y `- 500 mg` (productos distintos, dos proyectos legitimos), mientras AMIXEN SUSPENSIONES tiene `v1`, `v2` y `14;1` (versiones del mismo).
+3. **Hay xlsx que no son PM** en las mismas carpetas: `FORECAST ...`, `Precios ...`, `Parametros Costeo ...`.
+
+### Importador de carpeta (import:pm-folder)
+- `discoverPmWorkbooks(rootDir)` recorre un nivel de subcarpetas con matcher de nombre flexible (ambas convenciones) y excluye forecast/precios/costeo/scoring y los lock files `~$`. Devuelve candidatos ordenados por fecha de modificacion descendente.
+- `pmFolderImportService.importFromFolder` importa cada candidato de forma aislada: un archivo que falla se reporta y no aborta la corrida ni deja staging pendiente.
+- El desempate de versiones no usa heuristica de nombres: como el `projectCode` sale del contenido (producto + presentacion), dos archivos del mismo producto colisionan en el mismo codigo y gana el mas reciente; el resto queda `superseded_version`. Los productos distintos (PARAZETA 1 gr vs 500 mg) resuelven a codigos distintos y entran los dos.
+- Por defecto saltea proyectos que ya existen (`skipped_existing`), asi que re-correr es barato e idempotente; `--force` reimporta. Flags: `--dry-run`, `--limit=N`, `--product=TEXTO`.
+- Ruta configurable por argumento o `PM_SOURCE_DIR`; nada hardcodeado.
+- Verificado contra una carpeta que replica la estructura real: 4 importados, 1 `superseded_version` (Magnesio v1 detras de v2), forecast y costeo ignorados, PDF ignorado en silencio; segunda corrida 0 importados / 4 salteados sin duplicar.
+
 ## Restricciones vigentes
 - SAP: a la espera de Sistemas (ver docs/sap-integration-requirements.md). No conectar hasta tener respuesta.
 - Moondesk: integrado via reportes Excel (Tasks + Tasks_Times + Users_Tasks_Times). La API real reemplazara la fuente cuando este lista, manteniendo el servicio de aplicacion.
