@@ -175,8 +175,17 @@ Modelo conceptual:
 - Documento de requerimientos para el sector de sistemas en `docs/sap-integration-requirements.md`. Integracion de solo lectura del maestro de materiales; opciones de conexion en orden de preferencia (OData/REST, RFC/BAPI, vista de BD, export programado).
 - Queda a la espera de que Sistemas confirme factibilidad y pase la API si existe.
 
+## Pipeline por proyecto
+- `getPipelineSnapshot` acepta `{ projectId, blockedItemsLimit }`: sin projectId agrega toda la cartera (vista ejecutiva), con projectId acota el mismo calculo a un proyecto. Un solo origen de verdad para la semantica de hitos.
+- La pagina de proyecto muestra "Pipeline del proyecto" (solo las barras de cobertura) y la tabla de Project items gana la columna "Trabado en" con el primer hito faltante en orden operativo. No se repite el bloque de trabados del dashboard: en el proyecto la tabla de items ya es esa lista.
+- `PipelineStagesCard` se exporta aparte de `PipelinePanel` para compartir las barras entre ambas vistas.
+- Verificado: la suma de los pipelines por proyecto coincide exactamente con el global en los 5 hitos (9 componentes). PYLOBER muestra documentacion 75% (3 de 4) frente al 33% global, que era justamente el dato que la vista agregada escondia.
+
+## Hallazgo pendiente (preexistente)
+- En `projectsRepository.findById` las `alerts` del proyecto se traen sin `include` de `projectItem`, asi que la tabla "Alertas abiertas" de la pagina de proyecto muestra "Sin proyecto / Sin item". Se pierde a que componente corresponde cada alerta. Arreglo chico: agregar el include y ocultar la columna Proyecto en ese contexto.
+
 ## Proximo paso
-A la espera de: (1) respuesta de Sistemas sobre conexion SAP, (2) API real de Moondesk. Mientras tanto (sin depender de terceros): edicion basica de estados de items desde la UI, o vista de pipeline por proyecto (hoy el pipeline es global).
+A la espera de: (1) respuesta de Sistemas sobre conexion SAP, (2) API real de Moondesk. Mientras tanto (sin depender de terceros): arreglar el include de alertas del proyecto (ver hallazgo), o edicion basica de estados de items desde la UI.
 
 ## Restricciones vigentes
 - SAP: a la espera de Sistemas (ver docs/sap-integration-requirements.md). No conectar hasta tener respuesta.

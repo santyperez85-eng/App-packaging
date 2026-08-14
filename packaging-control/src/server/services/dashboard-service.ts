@@ -95,11 +95,19 @@ export const dashboardService = {
   },
 
   /**
-   * Pipeline operativo agregado: cuantos componentes cubrieron cada milestone.
+   * Pipeline operativo: cuantos componentes cubrieron cada milestone.
    * Reutiliza buildMilestones del lifecycle para no duplicar la semantica.
+   * Sin `projectId` agrega todos los proyectos (vista ejecutiva); con
+   * `projectId` acota el mismo calculo a un proyecto.
    */
-  async getPipelineSnapshot() {
+  async getPipelineSnapshot(options?: { projectId?: string; blockedItemsLimit?: number }) {
+    // Sin DATABASE_URL (preview de UI) no hay nada que consultar.
+    if (isMockPreviewEnabled()) {
+      return mockData.dashboard.pipeline;
+    }
+
     const items = await prisma.projectItem.findMany({
+      where: options?.projectId ? { projectId: options.projectId } : undefined,
       include: LIFECYCLE_MILESTONE_INCLUDE
     });
 
@@ -169,7 +177,7 @@ export const dashboardService = {
       stages,
       blockedItems: blockedItems
         .sort((left, right) => left.readinessScore - right.readinessScore)
-        .slice(0, 8)
+        .slice(0, options?.blockedItemsLimit ?? 8)
     };
   }
 };

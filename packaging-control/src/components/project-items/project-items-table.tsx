@@ -16,9 +16,16 @@ type ProjectItemsTableProps = {
     alerts?: Array<{ id: string; severity: string; title: string }>;
   }>;
   showProject?: boolean;
+  /**
+   * Primer hito faltante por item id, en orden operativo. Cuando se pasa, la
+   * tabla agrega la columna "Trabado en" para no tener que abrir el lifecycle.
+   */
+  blockedByMilestone?: Record<string, string>;
 };
 
-export function ProjectItemsTable({ items, showProject = false }: ProjectItemsTableProps) {
+export function ProjectItemsTable({ items, showProject = false, blockedByMilestone }: ProjectItemsTableProps) {
+  const showBlockedColumn = Boolean(blockedByMilestone);
+
   return (
     <div className="table-wrap">
       <table className="data-table">
@@ -27,6 +34,7 @@ export function ProjectItemsTable({ items, showProject = false }: ProjectItemsTa
             {showProject ? <th>Proyecto</th> : null}
             <th>Item</th>
             <th>Estado</th>
+            {showBlockedColumn ? <th>Trabado en</th> : null}
             <th>Readiness</th>
             <th>Criticidad</th>
             <th>Material</th>
@@ -46,6 +54,11 @@ export function ProjectItemsTable({ items, showProject = false }: ProjectItemsTa
               <td>
                 <StatusBadge label={item.status} />
               </td>
+              {showBlockedColumn ? (
+                <td>
+                  {blockedByMilestone?.[item.id] ?? <span className="muted-text">Sin hitos faltantes</span>}
+                </td>
+              ) : null}
               <td>{item.readinessScore}</td>
               <td>{item.criticality}</td>
               <td>{item.materialMaster?.materialCode ?? item.expectedMaterialCode ?? "Pendiente"}</td>

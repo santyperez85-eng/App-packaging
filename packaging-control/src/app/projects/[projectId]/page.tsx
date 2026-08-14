@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation";
 
 import { AlertsTable } from "@/components/alerts/alerts-table";
+import { PipelineStagesCard } from "@/components/dashboard/pipeline-panel";
 import { ProjectItemsTable } from "@/components/project-items/project-items-table";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { dashboardService } from "@/server/services/dashboard-service";
 import { projectsService } from "@/server/services/projects-service";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +27,15 @@ export default async function ProjectDetailPage({
   if (!project) {
     notFound();
   }
+
+  // Mismo calculo de hitos que la vista ejecutiva, acotado a este proyecto.
+  const pipeline = await dashboardService.getPipelineSnapshot({
+    projectId: project.id,
+    blockedItemsLimit: project.projectItems.length || 1
+  });
+  const blockedByMilestone = Object.fromEntries(
+    pipeline.blockedItems.map((item) => [item.id, item.firstMissingMilestone])
+  );
 
   return (
     <div className="stack-lg">
@@ -48,11 +59,13 @@ export default async function ProjectDetailPage({
         <StatCard label="Alertas abiertas" value={project.alerts.length} accent={project.alerts.length ? "danger" : "success"} />
       </div>
 
+      <PipelineStagesCard pipeline={pipeline} title="Pipeline del proyecto" />
+
       <SectionCard
         title="Project items"
-        description="Componentes de packaging vinculados al proyecto."
+        description="Componentes de packaging vinculados al proyecto. La columna Trabado en muestra el primer hito faltante en orden operativo."
       >
-        <ProjectItemsTable items={project.projectItems} />
+        <ProjectItemsTable items={project.projectItems} blockedByMilestone={blockedByMilestone} />
       </SectionCard>
 
       <div className="grid-two">
