@@ -4,6 +4,12 @@
 **De:** Santiago Pérez — Packaging
 **Pedido concreto:** confirmar si es técnicamente posible que una aplicación interna **lea** datos del maestro de materiales de SAP, y por cuál método; y si existe una API/servicio, pasárnoslo.
 
+> **RESPUESTA RECIBIDA (2026-08-14, Marcelo — Sistemas).** Técnicamente **sí es posible** desarrollar una API para consultar el maestro de materiales. Pero no tienen capacidad en el corto plazo por el **proyecto de HANA** en curso. Lo que ofrecen ya: un **servicio a demanda** — indicamos los grupos de materiales y los campos, ellos corren la query y devuelven un **Excel**, las veces que lo necesitemos. Ofrecen reunión.
+>
+> **Decisión:** aceptamos el servicio a demanda. Arquitectónicamente no cambia nada: el maestro SAP entra como una fuente Excel más, igual que PM, recetas, altas y los reportes de Moondesk. Cuando pase el proyecto de HANA se retoma la API y solo se reemplaza la fuente. El pedido concreto (grupos, campos y formato del Excel) está en `sap-respuesta-a-sistemas.md`.
+>
+> **Implicancia de diseño a tener en cuenta:** sin API no hay sincronización continua, así que el maestro va a estar tan fresco como el último corte que pidamos. La aplicación **debe mostrar la fecha del corte de SAP** junto al estado de formalización: sin eso, "el material no está en SAP" se confunde con "no actualizamos el maestro desde hace dos meses", y esa confusión llevaría a decisiones equivocadas.
+
 > Este documento describe lo que la aplicación necesita (ya definido de nuestro lado) y lo que necesitamos que Sistemas confirme. Las definiciones de producto/proyecto ya están tomadas; **lo único que les pedimos decidir es la factibilidad técnica y el método de acceso.**
 
 ---

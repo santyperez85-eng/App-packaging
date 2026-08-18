@@ -171,9 +171,13 @@ Modelo conceptual:
 - `dashboard-service.getPipelineSnapshot()` reutiliza `buildMilestones` del lifecycle service (exportado junto con `LIFECYCLE_MILESTONE_INCLUDE`) para que la semantica de hitos tenga una sola fuente de verdad.
 - Se removieron las dos tarjetas de texto estatico de la home que describian fases y "stubs" de Moondesk/SAP (ya desactualizadas).
 
-## SAP (pendiente de Sistemas)
-- Documento de requerimientos para el sector de sistemas en `docs/sap-integration-requirements.md`. Integracion de solo lectura del maestro de materiales; opciones de conexion en orden de preferencia (OData/REST, RFC/BAPI, vista de BD, export programado).
-- Queda a la espera de que Sistemas confirme factibilidad y pase la API si existe.
+## SAP: respondio Sistemas (2026-08-14)
+- **La API es posible pero no ahora**: Sistemas confirmo que tecnicamente se puede desarrollar, pero no tienen capacidad por el proyecto de HANA en curso.
+- **Lo que hay ya**: servicio a demanda. Indicamos grupos de materiales y campos, ellos corren la query y devuelven un Excel, cuantas veces lo pidamos. Aceptado: el maestro SAP entra como otra fuente Excel, igual que PM / recetas / altas / Moondesk. Cuando pase HANA se retoma la API y solo se reemplaza la fuente.
+- Pedido concreto redactado en `docs/sap-respuesta-a-sistemas.md`: grupos por prefijo de codigo derivados de los datos reales (`S`/`SA`-`SE` impresos ~503 codigos, `E`/`EA`-`ED` envases ~262, `K` cartones; se excluyen `M` materias primas, `T`/`TA` tecnicas de control y los numericos que son producto terminado/granel), campos con su nombre tecnico de referencia, formato plano requerido (una fila por material, headers en fila 1, codigo como texto, nombres de columna estables entre cortes) y frecuencia mensual.
+- Se aclaro a Sistemas que **no** necesitamos raiz ni version: SAP trata el codigo como identificador completo y la raiz/version es constructo nuestro que derivamos parseando el codigo.
+- **Implicancia de diseno pendiente**: sin API el maestro esta tan fresco como el ultimo corte, asi que la UI **tiene que mostrar la fecha del corte de SAP** junto al estado de formalizacion. Sin esa fecha, "no esta en SAP" se confunde con "el maestro esta viejo". Hay que resolverlo cuando se implemente el adapter.
+- El adapter de SAP-Excel se implementa cuando llegue el primer Excel real: la leccion del importador de PM es no adivinar la estructura de un archivo que todavia no vimos.
 
 ## Pipeline por proyecto
 - `getPipelineSnapshot` acepta `{ projectId, blockedItemsLimit }`: sin projectId agrega toda la cartera (vista ejecutiva), con projectId acota el mismo calculo a un proyecto. Un solo origen de verdad para la semantica de hitos.
