@@ -247,6 +247,35 @@ Sistemas no puede poner la fecha en el nombre del archivo. No hace falta: el arc
 - `projectsRepository.findById` ahora incluye `projectItem` en las alertas del proyecto, asi que la tabla dice a que componente corresponde cada alerta en vez de "Sin item".
 - `AlertsTable` toma `showProject` (la columna Proyecto se oculta dentro de un proyecto) y linkea el item a su lifecycle. En `/alerts` la columna Item pasa a mostrar el `itemKey` clickeable en lugar del nombre largo.
 
+## Cartera completa: las cinco etapas con datos reales (2026-09-09)
+Se aplicaron las cuatro fuentes sobre los 44 proyectos importados de la carpeta de OneDrive. Estado del pipeline:
+
+| Etapa | Cobertura | Detalle |
+|---|---|---|
+| Expectativa PM | 100% | 101 componentes |
+| Pedido de codigo | 0% | 25 parciales, 76 faltantes |
+| Estructura pre-SAP | 0% | 2 parciales, 99 faltantes |
+| Material formal | 20% | 20 cubiertos, 1 parcial, 80 faltantes |
+| Documentacion | 11% | 11 cubiertos, 90 faltantes |
+
+### Resolucion automatica de tokens (`project-token-resolver.ts`)
+Las fuentes transversales (altas, recetas, Moondesk) traen filas de todos los productos, asi que cada proyecto necesita un token para filtrarlas. Hacerlo a mano no escala a 44 productos, y el riesgo real es la contaminacion cruzada entre nombres anidados: buscar "VALSARTAN" tambien trae "VALSARTAN HCT".
+- El token sale del nombre del producto, cortado en el primer parentesis (lo que sigue suele ser dosis o composicion, que no aparece en las otras fuentes).
+- Los **tokens negativos se derivan comparando los productos entre si**: si el nombre de otro producto empieza con este, el calificador que los distingue pasa a exclusion. Derivo correctamente `EMGLIBER` excluye `met` y `VALSARTAN` excluye `hct`.
+- Queda una tabla de overrides para lo que el automatismo no puede resolver: el spray, cuyo PM lo nombra "Desinfectante" mientras las demas fuentes usan "PERPIEL HERIDAS" (excluyendo jabon, espuma, aqua y serum).
+- Runners: `import:altas-bulk` y `import:recetas-bulk`, ambos con `--dry-run`.
+
+### Bug corregido: la consolidacion borraba el vinculo con SAP
+`consolidation-service` pasaba `materialMasterId: null` cuando el alta o el BOM no aportaban maestro, y el repositorio interpreta `null` como "desvincular". Resultado: **cada re-consolidacion de altas borraba en silencio el vinculo con SAP** que habia establecido el import del maestro. Se cambio a `undefined` ("no tocar") en las dos rutas: el vinculo con el maestro lo establece el import de SAP, que es la autoridad sobre la formalizacion. Verificado: tras el arreglo el vinculo sobrevive a una re-consolidacion completa y SAP paso de 2 a 21 componentes vinculados.
+
+### Limitaciones de cobertura detectadas
+- **El archivo de recetas es un extracto, no el maestro.** Cubre unos 6 productos (PerPiel Aqua Serum, PerPiel Heridas spray/jabon/espuma, Magnesio, Amixen Clavulanico, Creatina, Totalcaina) contra 44 de la cartera. Por eso la etapa pre-SAP queda en 2 componentes. **Hace falta el archivo completo de recetas** para que esa etapa sea representativa.
+- El adapter de recetas matchea por el nombre del **bloque de receta** (producto terminado con presentacion, "BERNABO+ MAGNESIO EN POLVO X 150G"), que no coincide con el nombre del PM. El token derivado del producto sirve para altas y Moondesk, pero para recetas cubre solo los casos donde el nombre esta contenido.
+- Dos proyectos comparten el nombre de producto "SEMAGLUTIDE INYECTABLE" (pen y jeringas prellenadas): con el mismo token capturan las mismas filas. El resolver no puede distinguirlos porque no son nombres anidados sino identicos.
+
+### Observacion sobre el hito "Pedido de codigo"
+Su estado es `partial` cuando hay alta y `missing` cuando no: **nunca llega a `ready`**, asi que su cobertura sera siempre 0% por construccion. Operativamente el pedido esta completo cuando el codigo fue otorgado, cosa que se sabe por SAP. Conviene revisar la regla para que pase a cubierto cuando existe alta y el material aparece en el maestro; hoy el 0% se lee como "no se pidio nada" cuando en realidad hay 25 pedidos en curso.
+
 ## Proximo paso
 A la espera de: (1) respuesta de Sistemas sobre conexion SAP, (2) API real de Moondesk. Mientras tanto (sin depender de terceros): edicion basica de estados de items desde la UI.
 

@@ -820,7 +820,10 @@ export const consolidationService = {
           criticality: bomItem.isCritical ? ItemCriticality.CRITICAL : ItemCriticality.MEDIUM,
           bomItemId: bomItem.id,
           materialRequestId: request?.id ?? null,
-          materialMasterId: material?.id ?? null,
+          // `undefined` = no tocar. El vinculo con el maestro lo establece el
+          // import de SAP, que es la autoridad sobre la formalizacion; pasar
+          // null aca lo borraria en cada re-consolidacion.
+          materialMasterId: material?.id ?? undefined,
           expectedMaterialCode: bomItem.expectedMaterialCode,
           requiresApprovedDocument: true,
           requiresMaterialCode: true,
@@ -924,7 +927,8 @@ export const consolidationService = {
           itemType: inferItemType(`${componentSlot} ${request.requestedDescription}`),
           criticality: ItemCriticality.HIGH,
           materialRequestId: request.id,
-          materialMasterId: linkedMaterial?.id ?? request.linkedMaterialId,
+          // Ver nota arriba: solo se escribe cuando el alta aporta un maestro.
+          materialMasterId: linkedMaterial?.id ?? request.linkedMaterialId ?? undefined,
           expectedMaterialCode: trustedMaterialCode,
           requiresApprovedDocument: true,
           requiresMaterialCode: true,
