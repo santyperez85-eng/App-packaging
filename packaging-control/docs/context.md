@@ -292,7 +292,31 @@ Definicion de negocio: el arte aplica unicamente a componentes que se imprimen. 
 
 Aplicado a la cartera: **28 de 101 componentes dejaron de requerir arte** (26 blisters y 2 pomos). La cobertura de documentacion paso de 11% a 15% — no porque avanzara nada, sino porque el denominador dejo de incluir componentes que nunca iban a tener arte.
 
-### Fuente nueva identificada: indice de documentos aprobados
+### DOCUMENTOS APROBADOS (SharePoint de la compania) — fuente correcta
+Correccion: la verificacion no es contra Scilife sino contra la carpeta **DOCUMENTOS APROBADOS** del SharePoint de la compania, donde documentacion tecnica publica lo aprobado para que Compras lo use.
+
+Ruta real (verificada 2026-09-09): OneDrive de `doctec`, `Documents/DOCUMENTOS APROBADOS/`. **6.618 carpetas.** Estructura confirmada:
+```
+DOCUMENTOS APROBADOS/
+  <TIPO DE MATERIAL>/     ESTUCHES, POMOS, FRASCOS, PROSPECTOS, DOSIFICADORES, ...
+    <CODIGO-CON-GUION>/   ED28-70  (la barra del codigo ED28/70 no es valida en nombres de carpeta)
+      archivos .pdf / .ai
+```
+Los nombres de archivo traen la numeracion `MOONxxxxx` que asigna Moondesk, porque los documentos se descargan de ahi ya nombrados. Eso permite cruzar el documento publicado contra la version que Moondesk reporta aprobada, no solo constatar que hay un archivo.
+
+Adapter: `src/server/etl/approved-documents-folder.ts`. Convierte carpeta a codigo (solo el ultimo guion seguido de digitos es la version; los codigos sin version quedan intactos), extrae los `MOONxxxxx` y detecta carpetas vacias.
+
+**Verificacion de la cadena completa** con dos casos reales:
+- `FRASCOS/ED28-70` (frasco de Magnesio, ya vinculado a SAP): `Especificacion___PL-_ESP-MOON03103__outline.pdf` y `Plano_ED16__PL-MOON02733_ESP-_.pdf`.
+- `ESTUCHES/SE09-70` (estuche de PYLOBER): `MOON00393-100X80X100 PYLOBER.pdf` — **MOON00393 es exactamente el Cod. Plano que Moondesk reporta para ese estuche** — mas `MOON01898.pdf` y los artes `SE09-70 PYLOBER (...) V_out.ai` / `V_prw.pdf`.
+
+**Cuidado al buscar**: existen carpetas con el mismo nombre de codigo en otras rutas (`Documentos - Proveedores/Notas de Pedido/...`). Hay que filtrar por la ruta de DOCUMENTOS APROBADOS, no por nombre de carpeta.
+
+**Pregunta abierta (bloquea clasificar bien)**: la nomenclatura no es unica. Con prefijo explicito (`ESP-MOONxxxxx`, `PL-MOONxxxxx`) el tipo de documento es inequivoco, pero hay archivos que se llaman solo `MOON01898.pdf` o `MOON00393-100X80X100 PYLOBER.pdf` y ahi el nombre no dice si es plano, especificacion o arte. Hipotesis a confirmar: **no clasificar por nombre sino cruzar el `MOONxxxxx` contra el "Tipo de Documento" que ya trae el reporte de Moondesk**, que ademas es lo que permite verificar que el archivo publicado corresponde a la version aprobada. Hasta confirmarlo esos archivos quedan como `unknown` en lugar de asumir un tipo.
+
+**Pendiente operativo**: la carpeta no esta sincronizada localmente. Para que la app la lea hace falta sincronizarla igual que se hizo con la de PM (boton Sincronizar en la vista de la carpeta).
+
+### Indice complementario de especificaciones y planos
 `OneDrive/Especificaciones, planos y artes de Material de Empaque/CODIGO DE MATERIALES - ESPECIFICACIONES - PLANOS.xlsx` — 23 hojas por tipo de componente, **1.581 codigos** mapeando `codigo de material -> especificacion -> plano -> codigo Scilife`. Cobertura: 69% con especificacion, 72% con plano, **57% cargado en Scilife** (que es la señal de "disponible para Compras"). Se vincula por codigo de material, igual que SAP.
 Ademas hay carpetas con los archivos (PLANOS APROBADOS 251, Estuches 438, Etiquetas 97) y los nombres contienen el `MOONxxxxx` que Moondesk usa como Cod. Plano, lo que da un puente entre ambas fuentes.
 **Pendiente de integrar**: seria la fuente de los dos requisitos que hoy quedan sin verificar en el checklist.
