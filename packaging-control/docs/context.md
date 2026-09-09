@@ -179,6 +179,33 @@ Modelo conceptual:
 - **Implicancia de diseno pendiente**: sin API el maestro esta tan fresco como el ultimo corte, asi que la UI **tiene que mostrar la fecha del corte de SAP** junto al estado de formalizacion. Sin esa fecha, "no esta en SAP" se confunde con "el maestro esta viejo". Hay que resolverlo cuando se implemente el adapter.
 - El adapter de SAP-Excel se implementa cuando llegue el primer Excel real: la leccion del importador de PM es no adivinar la estructura de un archivo que todavia no vimos.
 
+## SAP: primer corte recibido y validado (2026-09-09)
+Archivo `Packaging_Materiales.xlsx`, hoja `Data`, 3.732 materiales. **Veredicto: sirve, OK para usarlo como fuente del milestone `formal_material`.**
+
+### Cumplimiento de lo pedido
+- **Formato: cumple todo.** Una hoja, headers en fila 1, datos desde la 2, sin celdas combinadas, codigo como texto sin espacios ni ceros suprimidos, fechas como serial de Excel (convertibles).
+- **Campos: llegaron los 9.** Material (MATNR), Descripcion, Tipo Material (ZSEN/ZENV), Grupo Articulo, Marca borrado, Status material para todos los centros, UMB, Fecha creacion, Ultima modificacion. Falta solo proveedor, que se habia marcado opcional.
+- **Alcance: exacto.** Solo prefijos `S`/`SA`-`SE` (2.544), `E`/`EA`-`ED`+`EBX` (1.118) y `K` (70). Cero ruido: no vino ninguna materia prima, tecnica de control ni producto terminado.
+- **Integridad**: 3.732 codigos unicos, 0 duplicados, sin descripcion/tipo/UMB vacios. Dos casos aislados: `E658` sin grupo de articulo y un material sin fecha de modificacion. Un outlier de tipo `VERP` (`S769/60`, un prospecto) probablemente mal tipificado en SAP.
+
+### Grupo de articulo 051 (aviso de Sistemas)
+- 1.826 materiales (49% del archivo) tienen grupo `051` = fuera de uso.
+- **`051` y status `Z3` son exactamente el mismo conjunto** (1.826 cada uno, interseccion total): cualquiera de las dos señales sirve para detectarlos.
+- Ademas hay **7 materiales activos con marca de borrado `X`** que Sistemas no menciono; hay que excluirlos igual. Otros 29 con marca de borrado caen dentro de 051.
+- **Neto vigente: 1.899 materiales.**
+- **Decision de diseno: pedir que NO los filtren en la query.** Que sigan viniendo y los marcamos nosotros. Si el corte los excluyera, un componente discontinuado simplemente desapareceria del archivo y no podriamos distinguir "se dio de baja" de "nunca existio" — y esa distincion es justamente una señal operativa que nos interesa.
+
+### Utilidad comprobada contra nuestros datos
+- De los 775 codigos de packaging reales de `Alta de Mat`: **721 vigentes en SAP (93%)**, 40 en 051, 1 marcado para borrar, 13 ausentes.
+- Los 13 ausentes son precisamente los que no deberian estar: PerPiel Heridas **Espuma** (`ED29`, `SE93/70`) y **Creatina** (`ED30`, `SE94/70`), productos nuevos que las recetas ya marcan como "Aun sin cargar fase 1 en SAP", mas altas recientes de PerPiel Calendula GALENO.
+- Verificacion puntual de los codigos que el sistema ya rastrea: 11 de 14 vigentes con descripcion coincidente; los 3 ausentes son todos de Creatina, el producto que el sistema marca trabado en "Pedido de codigo". **Triple concordancia entre recetas, SAP y el estado que calcula la aplicacion.**
+- Dato lateral: SAP dice `FCO. BERNABIO MAGNESIO ZERO POLVOX144G` para `ED28/70`, confirmando que la version de 144 g del PM de Magnesio (la de OneDrive) es la vigente, no la de 150 g.
+
+### Unico incumplimiento y pedidos para el proximo corte
+1. **El nombre del archivo no trae la fecha de corte** (`Packaging_Materiales.xlsx`). Es lo unico del formato que no se cumplio, y hace falta porque la UI va a mostrar desde cuando son los datos de SAP. Pedir `maestro_packaging_AAAA-MM-DD.xlsx`.
+2. Confirmar como interpretar los 7 materiales activos con marca de borrado (¿baja en tramite?).
+3. Consultar el caso `E658` sin grupo de articulo.
+
 ## Pipeline por proyecto
 - `getPipelineSnapshot` acepta `{ projectId, blockedItemsLimit }`: sin projectId agrega toda la cartera (vista ejecutiva), con projectId acota el mismo calculo a un proyecto. Un solo origen de verdad para la semantica de hitos.
 - La pagina de proyecto muestra "Pipeline del proyecto" (solo las barras de cobertura) y la tabla de Project items gana la columna "Trabado en" con el primer hito faltante en orden operativo. No se repite el bloque de trabados del dashboard: en el proyecto la tabla de items ya es esa lista.
