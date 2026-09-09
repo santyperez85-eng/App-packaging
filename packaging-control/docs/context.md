@@ -209,12 +209,23 @@ Sistemas no puede poner la fecha en el nombre del archivo. No hace falta: el arc
 - Tecnicamente el maximo de modificacion es una cota inferior de la fecha de extraccion, con desfase esperable de uno o dos dias. Irrelevante para el uso.
 - La UI debe mostrar antiguedad relativa ("datos de SAP al 9-sep, hace 3 dias") y avisar al pasar un umbral.
 
-### Consultas abiertas a Sistemas (ninguna bloquea el desarrollo)
-1. **Pedido principal: que NO filtren el 051.** Que siga viniendo; lo marcamos nosotros. Ver motivo arriba.
-2. Los 7 materiales con marca de borrado fuera de 051 (`SC77/10`, `SC78/10`, `SC79/10`, `SD31/70`, `S858/62`, `S676/65`, `S942/70`): ¿baja en tramite? En varios la descripcion fue reemplazada por el motivo ("SIN USO", "NO USAR", "BLOQUEADO"), perdiendo la descripcion original.
-3. Catalogo de status de material: en este corte solo aparecen vacio y `Z3`. ¿Hay otros valores posibles y que significan?
-4. Significado de `ZSEN` y `ZENV`. Aparente: `ZENV` = envases (codigos E), `ZSEN` = impresos y cartones (codigos S y K). Pero hay ~20 cruces (13 codigos `E` como ZSEN, 2 `S` como ZENV) y un `VERP` (`S769/60`, prospecto). Es la consulta mas util para clasificar componentes automaticamente.
-5. `E658` (Frasco Perpiel Emulsion x 200 ml) sin grupo de articulo: ¿dato faltante?
+### Semantica del maestro, confirmada por negocio (2026-09-09)
+- **`ZSEN` = "Z sobre envase"** (envase secundario: estuches, prospectos, etiquetas, cartones). **`ZENV` = "Z envase"** (envase primario: frascos, pomos, aluminios, tapas, bombas). Es la **clase de material** de SAP.
+- **`VERP`** (`S769/60`): error de tipificacion. Ignorar.
+- **`E658` sin grupo de articulo**: es un error. A ese material **le falta la version**, y por eso no se le cargo el grupo.
+- **Marca de borrado `X` != discontinuado.** Son codigos pedidos mal o por error; se leen como "no usar / sin uso / bloqueado". **No cuentan como activos ni representan materiales discontinuados.** Quedan por lo tanto **tres estados distintos**:
+  | Señal | Significado | Que implica si un item nuestro lo referencia |
+  |---|---|---|
+  | grupo `051` (= status `Z3`) | Material **discontinuado**: estuvo en uso y se dio de baja | Señal operativa: el componente que usabamos ya no esta vigente |
+  | marca de borrado `X` | Codigo **erroneo**: se pidio mal, nunca debio existir | Error nuestro de codificacion: hay que corregir el codigo del item |
+  | ninguna | Vigente | Formalizado y en uso |
+  Son alertas distintas y no deben colapsarse en un solo "inactivo".
+- Sigue abierta solo la consulta del catalogo de status (en este corte hay vacio y `Z3`; saber si existen otros valores evita malinterpretar uno nuevo).
+
+### Dos hallazgos que condicionan el adapter
+1. **La version no siempre vive en el codigo.** De 3.732 materiales: 2.628 la tienen en el codigo (`/70`), **70 la tienen en la descripcion en lugar del codigo** (por ejemplo `E640` = `POMO DENTILAC MENTA X 60 GR(V) /41`, casi todos de la linea DENTILAC) y 1.034 no la tienen en ningun lado. Si la logica de raiz+version parsea solo el codigo, esos 70 se leen como "sin version". Hay que contemplarlo, porque el versionado es central en los procedimientos de packaging.
+2. **La clase de material coincide con la descripcion en el 99%**, pero no siempre: sobre 3.272 materiales con descripcion tipificable, **34 discrepan** (1,0%) — mayormente etiquetas con codigo `E` marcadas como `ZENV`, mas algun frasco o tapa como `ZSEN`. Con esa tasa, `ZSEN`/`ZENV` es una señal confiable pero no infalible.
+   **Decision: la descripcion (`EST.`, `PROSP.`, `ETIQ.`, `FCO.`, `ALUM.`, `POMO`) sigue siendo la señal primaria de clasificacion y la clase de material de SAP se usa como confirmacion. Cuando discrepan, se marca para revision en lugar de decidir en silencio**, igual que con los bloques BOM ambiguos.
 
 ## Pipeline por proyecto
 - `getPipelineSnapshot` acepta `{ projectId, blockedItemsLimit }`: sin projectId agrega toda la cartera (vista ejecutiva), con projectId acota el mismo calculo a un proyecto. Un solo origen de verdad para la semantica de hitos.
