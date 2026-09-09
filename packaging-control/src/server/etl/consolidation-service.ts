@@ -13,6 +13,7 @@ import {
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { derivePrintRequirement } from "@/server/rules/printed-component";
 import {
   inferBusinessUnit,
   inferComponentSlot,
@@ -727,7 +728,10 @@ export const consolidationService = {
           provisionalCode: resolution.provisionalCode ?? null,
           itemType: inferItemType(expectedComponent.label),
           criticality: ItemCriticality.HIGH,
-          requiresApprovedDocument: true,
+          requiresApprovedDocument: derivePrintRequirement({
+            componentSlot: expectedComponent.componentSlot,
+            description: expectedComponent.label
+          }).requiresArt,
           requiresMaterialCode: true,
           requiresTechnicalDocs: true
         });
@@ -825,7 +829,11 @@ export const consolidationService = {
           // null aca lo borraria en cada re-consolidacion.
           materialMasterId: material?.id ?? undefined,
           expectedMaterialCode: bomItem.expectedMaterialCode,
-          requiresApprovedDocument: true,
+          requiresApprovedDocument: derivePrintRequirement({
+            componentSlot: resolution.componentSlot,
+            description: bomItem.componentName,
+            materialCode: bomItem.expectedMaterialCode ?? material?.materialCode
+          }).requiresArt,
           requiresMaterialCode: true,
           requiresTechnicalDocs: true
         });
@@ -930,7 +938,11 @@ export const consolidationService = {
           // Ver nota arriba: solo se escribe cuando el alta aporta un maestro.
           materialMasterId: linkedMaterial?.id ?? request.linkedMaterialId ?? undefined,
           expectedMaterialCode: trustedMaterialCode,
-          requiresApprovedDocument: true,
+          requiresApprovedDocument: derivePrintRequirement({
+            componentSlot,
+            description: request.requestedDescription,
+            materialCode: trustedMaterialCode ?? request.requestCode
+          }).requiresArt,
           requiresMaterialCode: true,
           requiresTechnicalDocs: true
         });

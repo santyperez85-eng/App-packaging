@@ -273,6 +273,30 @@ Las fuentes transversales (altas, recetas, Moondesk) traen filas de todos los pr
 - El adapter de recetas matchea por el nombre del **bloque de receta** (producto terminado con presentacion, "BERNABO+ MAGNESIO EN POLVO X 150G"), que no coincide con el nombre del PM. El token derivado del producto sirve para altas y Moondesk, pero para recetas cubre solo los casos donde el nombre esta contenido.
 - Dos proyectos comparten el nombre de producto "SEMAGLUTIDE INYECTABLE" (pen y jeringas prellenadas): con el mismo token capturan las mismas filas. El resolver no puede distinguirlos porque no son nombres anidados sino identicos.
 
+## El proceso no es lineal: checklist de cierre (2026-09-09)
+Definicion de negocio: **el orden en que se completan las etapas puede variar entre proyectos**. A veces primero va la receta, a veces el alta, a veces el arte. Lo que **no** varia es el conjunto de requisitos que hay que cumplir para dar algo por cerrado. Los pasos finales invariantes son: todo pedido en SAP y todo aprobado y cerrado en Moondesk.
+
+**Lo que esto invalidaba**: la columna "Trabado en" mostraba el *primer hito faltante en orden operativo*, lo que presupone una secuencia. Con un proceso no lineal esa etiqueta describe mal la situacion: decia "trabado en Pedido de codigo" para casi todos, cuando el componente podia estar avanzando por documentacion y lo que faltaba era el conjunto entero, sin un "primero".
+
+**Reemplazo**: `src/server/rules/closure-checklist.ts` evalua seis requisitos sin orden implicito — codigo pedido, codigo formalizado en SAP, estructura en receta, arte aprobado, especificacion disponible y plano disponible. Cada uno queda en `met` / `missing` / `at_risk` / `not_applicable` con el detalle de que se vio. `at_risk` cubre lo cumplido pero con señal de revision (material discontinuado, BOM con confirmaciones pendientes). La UI paso de "Componentes trabados / Trabado en" a **"Componentes sin cerrar / Que falta"**, listando todos los pendientes.
+- La receta **es** requisito de cierre (confirmado): sin receta no se produce.
+- Especificacion y plano se reportan como pendientes de fuente hasta integrar el indice; decir "falta el plano" sin haber mirado el repositorio seria afirmar algo no verificado.
+
+### Regla del arte: solo si lleva impresion
+Definicion de negocio: el arte aplica unicamente a componentes que se imprimen. Un envase con etiqueta no se imprime — se pide con codigo **sin version** — y la etiqueta se desarrolla aparte con su propio codigo versionado. Encaja con lo ya observado en SAP: la version esta atada a la impresion.
+
+`src/server/rules/printed-component.ts` deriva `requiresApprovedDocument`:
+- Siempre impresos: estuche, prospecto, etiqueta, folleto, calendario, sobre portablister, aluminio.
+- Nunca: blister (el PVC es transparente).
+- Depende (frasco, pomo, inserto, otro): manda la descripcion ("sin etiq", "tapa", "bomba" => no) y despues la version del codigo. Sin codigo formal todavia se asume que si, marcado como no concluyente.
+
+Aplicado a la cartera: **28 de 101 componentes dejaron de requerir arte** (26 blisters y 2 pomos). La cobertura de documentacion paso de 11% a 15% — no porque avanzara nada, sino porque el denominador dejo de incluir componentes que nunca iban a tener arte.
+
+### Fuente nueva identificada: indice de documentos aprobados
+`OneDrive/Especificaciones, planos y artes de Material de Empaque/CODIGO DE MATERIALES - ESPECIFICACIONES - PLANOS.xlsx` — 23 hojas por tipo de componente, **1.581 codigos** mapeando `codigo de material -> especificacion -> plano -> codigo Scilife`. Cobertura: 69% con especificacion, 72% con plano, **57% cargado en Scilife** (que es la señal de "disponible para Compras"). Se vincula por codigo de material, igual que SAP.
+Ademas hay carpetas con los archivos (PLANOS APROBADOS 251, Estuches 438, Etiquetas 97) y los nombres contienen el `MOONxxxxx` que Moondesk usa como Cod. Plano, lo que da un puente entre ambas fuentes.
+**Pendiente de integrar**: seria la fuente de los dos requisitos que hoy quedan sin verificar en el checklist.
+
 ### Observacion sobre el hito "Pedido de codigo"
 Su estado es `partial` cuando hay alta y `missing` cuando no: **nunca llega a `ready`**, asi que su cobertura sera siempre 0% por construccion. Operativamente el pedido esta completo cuando el codigo fue otorgado, cosa que se sabe por SAP. Conviene revisar la regla para que pase a cubierto cuando existe alta y el material aparece en el maestro; hoy el 0% se lee como "no se pidio nada" cuando en realidad hay 25 pedidos en curso.
 

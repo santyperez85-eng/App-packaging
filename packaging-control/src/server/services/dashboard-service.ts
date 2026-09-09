@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { isMockPreviewEnabled, mockData } from "@/server/mock-data";
 import { projectsRepository } from "@/server/repositories/projects-repository";
 import { alertsRepository } from "@/server/repositories/alerts-repository";
+import { evaluateClosureChecklist } from "@/server/rules/closure-checklist";
 import {
   LIFECYCLE_MILESTONE_INCLUDE,
   buildMilestones,
@@ -160,6 +161,8 @@ export const dashboardService = {
       coveragePercent: 0
     }));
     const stageByKey = new Map(stages.map((stage) => [stage.key, stage]));
+    // "Que falta" en lugar de "donde esta trabado": el proceso no es secuencial,
+    // asi que senalar un unico punto de bloqueo describiria mal la situacion.
     const blockedItems: Array<{
       id: string;
       itemKey: string;
@@ -167,8 +170,11 @@ export const dashboardService = {
       projectCode: string;
       readinessScore: number;
       status: string;
-      firstMissingMilestone: string;
+      missingRequirements: string[];
+      atRiskRequirements: string[];
+      readyToClose: boolean;
     }> = [];
+    let readyToCloseCount = 0;
 
     for (const item of items) {
       const milestones = buildMilestones(item);
@@ -184,23 +190,25 @@ export const dashboardService = {
         stage.total += 1;
       }
 
-      // Primer milestone faltante en orden operativo: donde esta trabado el item.
-      const firstMissing = milestones
-        .slice()
-        .sort((left, right) => left.operationalOrder - right.operationalOrder)
-        .find((milestone) => bucketFor(milestone.status) === "missing");
+      // Que le falta al componente para poder cerrarse, sin asumir un orden.
+      const checklist = evaluateClosureChecklist(item);
 
-      if (firstMissing) {
-        blockedItems.push({
-          id: item.id,
-          itemKey: item.itemKey,
-          name: item.name,
-          projectCode: item.project.code,
-          readinessScore: item.readinessScore,
-          status: item.status,
-          firstMissingMilestone: firstMissing.label
-        });
+      if (checklist.readyToClose) {
+        readyToCloseCount += 1;
+        continue;
       }
+
+      blockedItems.push({
+        id: item.id,
+        itemKey: item.itemKey,
+        name: item.name,
+        projectCode: item.project.code,
+        readinessScore: item.readinessScore,
+        status: item.status,
+        missingRequirements: checklist.missing,
+        atRiskRequirements: checklist.atRisk,
+        readyToClose: false
+      });
     }
 
     for (const stage of stages) {
@@ -212,6 +220,7 @@ export const dashboardService = {
 
     return {
       itemsEvaluated: items.length,
+      readyToClose: readyToCloseCount,
       stages,
       blockedItems: blockedItems
         .sort((left, right) => left.readinessScore - right.readinessScore)

@@ -28,13 +28,18 @@ export default async function ProjectDetailPage({
     notFound();
   }
 
-  // Mismo calculo de hitos que la vista ejecutiva, acotado a este proyecto.
+  // Mismo calculo que la vista ejecutiva, acotado a este proyecto.
   const pipeline = await dashboardService.getPipelineSnapshot({
     projectId: project.id,
     blockedItemsLimit: project.projectItems.length || 1
   });
-  const blockedByMilestone = Object.fromEntries(
-    pipeline.blockedItems.map((item) => [item.id, item.firstMissingMilestone])
+  const missingByItem = Object.fromEntries(
+    pipeline.blockedItems.map((item) => [
+      item.id,
+      [...item.missingRequirements, ...item.atRiskRequirements.map((requirement) => `${requirement} (a revisar)`)].join(
+        " · "
+      )
+    ])
   );
 
   return (
@@ -63,9 +68,9 @@ export default async function ProjectDetailPage({
 
       <SectionCard
         title="Project items"
-        description="Componentes de packaging vinculados al proyecto. La columna Trabado en muestra el primer hito faltante en orden operativo."
+        description="Componentes de packaging vinculados al proyecto. La columna Qué falta lista los requisitos pendientes para poder cerrar cada componente."
       >
-        <ProjectItemsTable items={project.projectItems} blockedByMilestone={blockedByMilestone} />
+        <ProjectItemsTable items={project.projectItems} missingByItem={missingByItem} />
       </SectionCard>
 
       <div className="grid-two">

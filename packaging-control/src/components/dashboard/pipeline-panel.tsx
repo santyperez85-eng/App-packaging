@@ -17,6 +17,7 @@ type PipelineStage = {
 type PipelinePanelProps = {
   pipeline: {
     itemsEvaluated: number;
+    readyToClose: number;
     stages: PipelineStage[];
     blockedItems: Array<{
       id: string;
@@ -25,7 +26,9 @@ type PipelinePanelProps = {
       projectCode: string;
       readinessScore: number;
       status: string;
-      firstMissingMilestone: string;
+      missingRequirements: string[];
+      atRiskRequirements: string[];
+      readyToClose: boolean;
     }>;
   };
   /** Titulo del pipeline. Cambia segun si el alcance es global o un proyecto. */
@@ -148,8 +151,8 @@ export function PipelinePanel({
       <PipelineStagesCard pipeline={pipeline} title={title} />
 
       <SectionCard
-        title="Componentes trabados"
-        description="Ordenados por readiness. Se muestra el primer hito faltante en orden operativo."
+        title="Componentes sin cerrar"
+        description="Qué le falta a cada componente para poder darse por cerrado. El orden en que se completen no importa; sí que estén todos."
         action={
           viewAllHref ? (
             <Link href={viewAllHref} className="text-link">
@@ -165,7 +168,7 @@ export function PipelinePanel({
                 <tr>
                   <th>Componente</th>
                   {showProjectColumn ? <th>Proyecto</th> : null}
-                  <th>Trabado en</th>
+                  <th>Qué falta</th>
                   <th>Readiness</th>
                   <th>Estado</th>
                 </tr>
@@ -180,7 +183,12 @@ export function PipelinePanel({
                       <div className="table-subtitle">{item.name}</div>
                     </td>
                     {showProjectColumn ? <td>{item.projectCode}</td> : null}
-                    <td>{item.firstMissingMilestone}</td>
+                    <td>
+                      <div>{item.missingRequirements.join(" · ") || "—"}</div>
+                      {item.atRiskRequirements.length ? (
+                        <div className="table-subtitle">A revisar: {item.atRiskRequirements.join(" · ")}</div>
+                      ) : null}
+                    </td>
                     <td>{item.readinessScore}</td>
                     <td>
                       <StatusBadge label={item.status} />

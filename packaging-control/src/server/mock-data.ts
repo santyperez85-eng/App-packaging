@@ -313,6 +313,7 @@ export const mockData = {
     recentAlerts: alerts,
     pipeline: {
       itemsEvaluated: 0,
+      readyToClose: 0,
       stages: [] as Array<{
         key: string;
         label: string;
@@ -330,7 +331,9 @@ export const mockData = {
         projectCode: string;
         readinessScore: number;
         status: string;
-        firstMissingMilestone: string;
+        missingRequirements: string[];
+        atRiskRequirements: string[];
+        readyToClose: boolean;
       }>
     }
   },

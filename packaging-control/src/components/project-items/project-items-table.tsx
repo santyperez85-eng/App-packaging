@@ -17,14 +17,15 @@ type ProjectItemsTableProps = {
   }>;
   showProject?: boolean;
   /**
-   * Primer hito faltante por item id, en orden operativo. Cuando se pasa, la
-   * tabla agrega la columna "Trabado en" para no tener que abrir el lifecycle.
+   * Requisitos de cierre pendientes por item id. Cuando se pasa, la tabla agrega
+   * la columna "Qué falta" para no tener que abrir el lifecycle. Un item que no
+   * figura en el mapa no tiene faltantes.
    */
-  blockedByMilestone?: Record<string, string>;
+  missingByItem?: Record<string, string>;
 };
 
-export function ProjectItemsTable({ items, showProject = false, blockedByMilestone }: ProjectItemsTableProps) {
-  const showBlockedColumn = Boolean(blockedByMilestone);
+export function ProjectItemsTable({ items, showProject = false, missingByItem }: ProjectItemsTableProps) {
+  const showMissingColumn = Boolean(missingByItem);
 
   return (
     <div className="table-wrap">
@@ -34,7 +35,7 @@ export function ProjectItemsTable({ items, showProject = false, blockedByMilesto
             {showProject ? <th>Proyecto</th> : null}
             <th>Item</th>
             <th>Estado</th>
-            {showBlockedColumn ? <th>Trabado en</th> : null}
+            {showMissingColumn ? <th>Qué falta</th> : null}
             <th>Readiness</th>
             <th>Criticidad</th>
             <th>Material</th>
@@ -54,9 +55,9 @@ export function ProjectItemsTable({ items, showProject = false, blockedByMilesto
               <td>
                 <StatusBadge label={item.status} />
               </td>
-              {showBlockedColumn ? (
+              {showMissingColumn ? (
                 <td>
-                  {blockedByMilestone?.[item.id] ?? <span className="muted-text">Sin hitos faltantes</span>}
+                  {missingByItem?.[item.id] || <span className="muted-text">Listo para cerrar</span>}
                 </td>
               ) : null}
               <td>{item.readinessScore}</td>
