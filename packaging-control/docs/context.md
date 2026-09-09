@@ -201,10 +201,20 @@ Archivo `Packaging_Materiales.xlsx`, hoja `Data`, 3.732 materiales. **Veredicto:
 - Verificacion puntual de los codigos que el sistema ya rastrea: 11 de 14 vigentes con descripcion coincidente; los 3 ausentes son todos de Creatina, el producto que el sistema marca trabado en "Pedido de codigo". **Triple concordancia entre recetas, SAP y el estado que calcula la aplicacion.**
 - Dato lateral: SAP dice `FCO. BERNABIO MAGNESIO ZERO POLVOX144G` para `ED28/70`, confirmando que la version de 144 g del PM de Magnesio (la de OneDrive) es la vigente, no la de 150 g.
 
-### Unico incumplimiento y pedidos para el proximo corte
-1. **El nombre del archivo no trae la fecha de corte** (`Packaging_Materiales.xlsx`). Es lo unico del formato que no se cumplio, y hace falta porque la UI va a mostrar desde cuando son los datos de SAP. Pedir `maestro_packaging_AAAA-MM-DD.xlsx`.
-2. Confirmar como interpretar los 7 materiales activos con marca de borrado (¿baja en tramite?).
-3. Consultar el caso `E658` sin grupo de articulo.
+### Fecha de corte: resuelta desde el contenido (no se pide a Sistemas)
+Sistemas no puede poner la fecha en el nombre del archivo. No hace falta: el archivo se autodescribe.
+- **Fecha de datos = maximo de la columna "Ultima modificacion"**. En este corte da `2026-09-09`, exactamente el dia en que lo enviaron. Es confiable porque el maestro tiene movimiento diario constante: **215 materiales modificados el mismo dia del corte**, asi que es casi imposible que un corte caiga en un dia sin modificaciones. Ventaja principal: viaja dentro del archivo, no depende de metadata externa ni de que alguien recuerde cuando lo recibio.
+- **Fecha de recepcion = mtime del archivo en disco** (aca coincide, 2026-09-09 14:46). El usuario carga el archivo sin abrirlo ni editarlo, asi que el mtime es la fecha de descarga.
+- **Override manual opcional** para cortes que necesiten aclaracion.
+- Tecnicamente el maximo de modificacion es una cota inferior de la fecha de extraccion, con desfase esperable de uno o dos dias. Irrelevante para el uso.
+- La UI debe mostrar antiguedad relativa ("datos de SAP al 9-sep, hace 3 dias") y avisar al pasar un umbral.
+
+### Consultas abiertas a Sistemas (ninguna bloquea el desarrollo)
+1. **Pedido principal: que NO filtren el 051.** Que siga viniendo; lo marcamos nosotros. Ver motivo arriba.
+2. Los 7 materiales con marca de borrado fuera de 051 (`SC77/10`, `SC78/10`, `SC79/10`, `SD31/70`, `S858/62`, `S676/65`, `S942/70`): ¿baja en tramite? En varios la descripcion fue reemplazada por el motivo ("SIN USO", "NO USAR", "BLOQUEADO"), perdiendo la descripcion original.
+3. Catalogo de status de material: en este corte solo aparecen vacio y `Z3`. ¿Hay otros valores posibles y que significan?
+4. Significado de `ZSEN` y `ZENV`. Aparente: `ZENV` = envases (codigos E), `ZSEN` = impresos y cartones (codigos S y K). Pero hay ~20 cruces (13 codigos `E` como ZSEN, 2 `S` como ZENV) y un `VERP` (`S769/60`, prospecto). Es la consulta mas util para clasificar componentes automaticamente.
+5. `E658` (Frasco Perpiel Emulsion x 200 ml) sin grupo de articulo: ¿dato faltante?
 
 ## Pipeline por proyecto
 - `getPipelineSnapshot` acepta `{ projectId, blockedItemsLimit }`: sin projectId agrega toda la cartera (vista ejecutiva), con projectId acota el mismo calculo a un proyecto. Un solo origen de verdad para la semantica de hitos.
