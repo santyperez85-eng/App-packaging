@@ -110,6 +110,10 @@ const ESTUCHE_WEIGHTS: Record<DimensionKey, number> = {
 
 const DEFAULT_ALERT_PRIORITIES: Record<string, number> = {
   CROSS_SOURCE_INCONSISTENCY: 100,
+  // Un codigo erroneo invalida la codificacion del componente: hay que
+  // corregirlo antes que cualquier otra cosa de esta dimension.
+  SAP_MATERIAL_CODE_ERRONEOUS: 98,
+  SAP_MATERIAL_DISCONTINUED: 96,
   DEFINITION_AMBIGUOUS: 95,
   BLOCKING_CHECKS_PENDING: 95,
   PHASE_MISMATCH: 95,
@@ -584,11 +588,62 @@ function dimensionSapFormalization(item: ProjectItemRulesRecord): DimensionEvalu
     };
   }
 
-  if (item.materialMaster?.sapMaterial) {
+  const sapMaterial = item.materialMaster?.sapMaterial;
+
+  // El material existe en SAP, pero existir no alcanza: un codigo dado de baja
+  // por error y uno discontinuado son situaciones distintas y ninguna de las dos
+  // es una formalizacion valida.
+  if (sapMaterial?.deletionFlag) {
+    return {
+      key: "sap_formalization",
+      status: "inconsistent",
+      score: 20,
+      blocking: true,
+      alerts: [
+        buildRuleAlert({
+          ruleCode: "SAP_MATERIAL_CODE_ERRONEOUS",
+          type: "SAP_MATERIAL_CODE_ERRONEOUS",
+          title: "Codigo de material erroneo en SAP",
+          message: `El codigo asociado a ${item.name} figura en SAP con marca de borrado: se pidio por error y no debe usarse. Hay que corregir la codificacion del componente.`,
+          severity: AlertSeverity.CRITICAL,
+          problemClass: "inconsistencia",
+          dimension: "sap_formalization",
+          status: "inconsistent",
+          priority: getAlertPriority(item, "SAP_MATERIAL_CODE_ERRONEOUS")
+        })
+      ],
+      signals: ["sap_material_erroneous_code"]
+    };
+  }
+
+  if (sapMaterial?.discontinued) {
+    return {
+      key: "sap_formalization",
+      status: "inconsistent",
+      score: 40,
+      blocking: true,
+      alerts: [
+        buildRuleAlert({
+          ruleCode: "SAP_MATERIAL_DISCONTINUED",
+          type: "SAP_MATERIAL_DISCONTINUED",
+          title: "Material discontinuado en SAP",
+          message: `El material de ${item.name} figura como discontinuado en SAP (grupo 051): estuvo en uso y se dio de baja. Hay que definir el reemplazo.`,
+          severity: AlertSeverity.CRITICAL,
+          problemClass: "inconsistencia",
+          dimension: "sap_formalization",
+          status: "inconsistent",
+          priority: getAlertPriority(item, "SAP_MATERIAL_DISCONTINUED")
+        })
+      ],
+      signals: ["sap_material_discontinued"]
+    };
+  }
+
+  if (sapMaterial) {
     return {
       key: "sap_formalization",
       status: "ready",
-      score: item.materialMaster.sapMaterial.activeFlag ? 100 : 85,
+      score: sapMaterial.activeFlag ? 100 : 85,
       blocking: false,
       alerts: [],
       signals: ["sap_material_present"]

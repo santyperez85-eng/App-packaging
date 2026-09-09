@@ -289,6 +289,17 @@ export function isMockPreviewEnabled() {
 
 export const mockData = {
   dashboard: {
+    // En preview de UI no hay corte de SAP importado.
+    sapSnapshot: null as null | {
+      dataDate: string;
+      sourceFileName: string | null;
+      materialCount: number;
+      currentCount: number;
+      discontinuedCount: number;
+      erroredCount: number;
+      ageInDays: number;
+      stale: boolean;
+    },
     totals: {
       totalProjects: 2,
       activeProjects: 1,

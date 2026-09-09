@@ -19,6 +19,7 @@
     "validate:moondesk": "node --import tsx ./src/server/validation/run-moondesk-report-validation.ts",
     "validate:moondesk-times": "node --import tsx ./src/server/validation/run-moondesk-times-validation.ts",
     "import:pm-folder": "node --import tsx ./src/server/validation/run-pm-folder-import.ts",
+    "import:sap-master": "node --import tsx ./src/server/validation/run-sap-master-import.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",

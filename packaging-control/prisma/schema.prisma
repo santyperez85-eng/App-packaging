@@ -530,12 +530,51 @@ model SapMaterial {
   supplier       String?
   purchaseStatus String?
   sourceUpdatedAt DateTime?
+  // Campos del corte del maestro (extraccion a demanda de Sistemas).
+  materialGroup  String?
+  /** Clase de material: ZENV = envase (primario), ZSEN = sobre envase (secundario). */
+  materialClass  String?
+  /** Marca de borrado: codigo pedido por error, distinto de discontinuado. */
+  deletionFlag   Boolean        @default(false)
+  /** Grupo 051 / status Z3: material que estuvo en uso y se dio de baja. */
+  discontinued   Boolean        @default(false)
+  baseUom        String?
+  sourceCreatedAt DateTime?
+  /** Corte del que provienen estos datos. */
+  snapshotId     String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   materialMaster MaterialsMaster? @relation(fields: [materialMasterId], references: [id])
+  snapshot       SapMasterSnapshot? @relation(fields: [snapshotId], references: [id])
   rawImports     ImportSapRaw[]
 
+  @@index([materialGroup])
+  @@index([snapshotId])
   @@map("sap_materials")
+}
+
+/**
+ * Un corte del maestro de materiales. Sistemas no puede poner la fecha en el
+ * nombre del archivo, asi que la fecha de datos se deriva del contenido (maximo
+ * de ultima modificacion) y se registra aca para que la UI pueda decir desde
+ * cuando son los datos de SAP.
+ */
+model SapMasterSnapshot {
+  id             String        @id @default(cuid())
+  /** Fecha de los datos, derivada del maximo de ultima modificacion. */
+  dataDate       DateTime
+  /** Fecha en que se recibio el archivo (mtime), si esta disponible. */
+  receivedAt     DateTime?
+  sourceFileName String?
+  materialCount  Int           @default(0)
+  currentCount   Int           @default(0)
+  discontinuedCount Int        @default(0)
+  erroredCount   Int           @default(0)
+  importedAt     DateTime      @default(now())
+  materials      SapMaterial[]
+
+  @@index([dataDate])
+  @@map("sap_master_snapshots")
 }
 
 model MoondeskVersion {

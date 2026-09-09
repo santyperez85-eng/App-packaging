@@ -559,6 +559,50 @@ ul {
   font-size: 0.9rem;
 }
 
+.sap-freshness {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 18px;
+  background: var(--surface);
+  backdrop-filter: blur(20px);
+}
+
+.sap-freshness--stale {
+  border-left-color: var(--warning);
+  background: linear-gradient(180deg, var(--surface), var(--warning-soft));
+}
+
+.sap-freshness--empty {
+  border-left-color: var(--muted);
+}
+
+.sap-freshness__label {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.sap-freshness--stale .sap-freshness__label {
+  color: var(--warning);
+}
+
+.sap-freshness__value {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.sap-freshness__hint {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
 .review-card {
   display: flex;
   flex-direction: column;

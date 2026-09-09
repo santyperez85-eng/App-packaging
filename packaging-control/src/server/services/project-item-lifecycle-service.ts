@@ -7,7 +7,7 @@ type LifecycleRecord = Prisma.ProjectItemGetPayload<{
     project: true;
     bomItem: true;
     materialRequest: true;
-    materialMaster: true;
+    materialMaster: { include: { sapMaterial: { include: { snapshot: true } } } };
     evidences: true;
     alerts: true;
     moondeskTasks: { include: { documents: true; reviews: true } };
@@ -23,7 +23,7 @@ export const LIFECYCLE_MILESTONE_INCLUDE = {
   project: true,
   bomItem: true,
   materialRequest: true,
-  materialMaster: true,
+  materialMaster: { include: { sapMaterial: { include: { snapshot: true } } } },
   evidences: true,
   alerts: true,
   moondeskTasks: { include: { documents: true, reviews: true } }
@@ -185,6 +185,56 @@ function evidenceFor(item: LifecycleRecord, sourceType: string) {
   return item.evidences.filter((evidence) => evidence.sourceType === sourceType);
 }
 
+function formatCutDate(value: Date | null | undefined) {
+  // Fecha calendario (serial de Excel sin hora): en horario local se correria un dia.
+  return value ? new Intl.DateTimeFormat("es-AR", { dateStyle: "medium", timeZone: "UTC" }).format(value) : null;
+}
+
+/**
+ * El estado de formalizacion depende de un corte del maestro de SAP, no de una
+ * sincronizacion continua, asi que el motivo siempre menciona la fecha del corte:
+ * sin esa referencia "no esta en SAP" se confunde con "el corte es viejo".
+ */
+function buildFormalMaterialMilestone(item: LifecycleRecord): LifecycleMilestone {
+  const sap = item.materialMaster?.sapMaterial;
+  const cutDate = formatCutDate(sap?.snapshot?.dataDate);
+  const cutSuffix = cutDate ? ` Datos de SAP al ${cutDate}.` : "";
+
+  const status: LifecycleMilestoneStatus = !sap
+    ? item.materialMaster
+      ? "partial"
+      : "missing"
+    : sap.deletionFlag || sap.discontinued
+      ? "manual_review"
+      : "ready";
+
+  const reason = sap
+    ? sap.deletionFlag
+      ? `El codigo figura en SAP con marca de borrado: se pidio por error y no debe usarse.${cutSuffix}`
+      : sap.discontinued
+        ? `El material figura como discontinuado en SAP (grupo 051): estuvo en uso y se dio de baja.${cutSuffix}`
+        : `Material formalizado y vigente en SAP.${cutSuffix}`
+    : item.materialMaster
+      ? `Hay maestro interno, pero el material no aparece en el corte de SAP.${cutSuffix}`
+      : "El componente todavia no tiene un material formalizado en SAP.";
+
+  return {
+    key: "formal_material",
+    label: "Material formal / maestro",
+    status,
+    operationalOrder: MILESTONE_ORDER.formal_material,
+    evidenceRefs: [...evidenceFor(item, "materials_master"), ...evidenceFor(item, "sap")].map((evidence) =>
+      evidenceRef(evidence.sourceType, evidence.sourceRecordKey)
+    ),
+    alertRefs: alertsFor(item, [
+      "REQUEST_WITHOUT_FORMAL_MATERIAL",
+      "SAP_MATERIAL_DISCONTINUED",
+      "SAP_MATERIAL_CODE_ERRONEOUS"
+    ]),
+    reason
+  };
+}
+
 function buildDocumentationApprovalMilestone(item: LifecycleRecord): LifecycleMilestone {
   const moondeskEvidence = evidenceFor(item, "moondesk");
   const hasApprovedDocument = item.moondeskTasks.some(
@@ -267,19 +317,7 @@ export function buildMilestones(item: LifecycleRecord): LifecycleMilestone[] {
           : "Hay evidencia BOM confiable para el componente."
         : "No hay evidencia BOM persistida para este item."
     },
-    {
-      key: "formal_material",
-      label: "Material formal / maestro",
-      status: item.materialMaster ? "ready" : "not_integrated",
-      operationalOrder: MILESTONE_ORDER.formal_material,
-      evidenceRefs: evidenceFor(item, "materials_master").map((evidence) =>
-        evidenceRef(evidence.sourceType, evidence.sourceRecordKey)
-      ),
-      alertRefs: alertsFor(item, ["REQUEST_WITHOUT_FORMAL_MATERIAL"]),
-      reason: item.materialMaster
-        ? "Existe material master asociado."
-        : "MaterialsMaster real queda fuera del alcance de esta fase."
-    },
+    buildFormalMaterialMilestone(item),
     buildDocumentationApprovalMilestone(item)
   ];
 }

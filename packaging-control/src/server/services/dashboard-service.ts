@@ -77,8 +77,10 @@ export const dashboardService = {
     });
 
     const pipeline = await this.getPipelineSnapshot();
+    const sapSnapshot = await this.getSapFreshness();
 
     return {
+      sapSnapshot,
       totals: {
         totalProjects,
         activeProjects,
@@ -91,6 +93,42 @@ export const dashboardService = {
       atRiskProjects: atRiskProjects.slice(0, 5),
       recentAlerts: recentAlerts.slice(0, 8),
       pipeline
+    };
+  },
+
+  /**
+   * Antiguedad del ultimo corte del maestro de SAP. Se expone en el dashboard
+   * porque el dato no se sincroniza en continuo: sin la fecha a la vista, "no
+   * esta en SAP" se lee igual que "el corte quedo viejo".
+   */
+  async getSapFreshness() {
+    if (isMockPreviewEnabled()) {
+      return null;
+    }
+
+    const snapshot = await prisma.sapMasterSnapshot.findFirst({ orderBy: [{ dataDate: "desc" }] });
+
+    if (!snapshot) {
+      return null;
+    }
+
+    const ageInDays = Math.max(
+      0,
+      Math.floor((Date.now() - snapshot.dataDate.getTime()) / (24 * 60 * 60 * 1000))
+    );
+
+    return {
+      dataDate: snapshot.dataDate.toISOString(),
+      importedAt: snapshot.importedAt.toISOString(),
+      sourceFileName: snapshot.sourceFileName,
+      materialCount: snapshot.materialCount,
+      currentCount: snapshot.currentCount,
+      discontinuedCount: snapshot.discontinuedCount,
+      erroredCount: snapshot.erroredCount,
+      ageInDays,
+      // Los cortes son mensuales: pasado ese plazo el dato deja de ser confiable
+      // para decidir si algo esta formalizado.
+      stale: ageInDays > 45
     };
   },
 
