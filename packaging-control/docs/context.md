@@ -316,6 +316,18 @@ Adapter: `src/server/etl/approved-documents-folder.ts`. Convierte carpeta a codi
 
 **Pendiente operativo**: la carpeta no esta sincronizada localmente. Para que la app la lea hace falta sincronizarla igual que se hizo con la de PM (boton Sincronizar en la vista de la carpeta).
 
+### Integracion completa (2026-09-09)
+Confirmado por negocio: los archivos que se llaman solo `MOONxxxxx.pdf` se clasifican **cruzando ese codigo contra el "Tipo de Documento" que reporta Moondesk**, que es de donde se descargan ya nombrados.
+
+- `parseMoondeskTaskTypesByCode` construye el indice `MOONxxxxx -> tipo` desde el reporte completo, sin filtrar por proyecto (los documentos publicados abarcan mucho mas que la cartera activa). Tipos que empiezan con "Plano" son plano, "Especificacion"/"FT" son especificacion, y el resto son componentes, con lo cual el documento es su arte.
+- `approvedDocumentsService.scanAndPersist` recorre la carpeta y persiste por codigo en `ApprovedDocumentSet`. Se persiste porque recorrer los 10.235 archivos de la carpeta sincronizada tarda mas de un minuto.
+- El checklist consume eso y distingue tres situaciones que antes se veian iguales: sin codigo de material todavia no hay carpeta que revisar, con codigo pero sin carpeta publicada, y con carpeta pero sin ese documento.
+
+**Escaneo real**: 37 tipos, 2.669 carpetas de codigo (2.644 con archivos, 11 vacias), 10.235 archivos. 7.048 clasificados por nombre, 3.169 sin clasificar.
+**Limite conocido**: el cruce con Moondesk resolvio solo 18 archivos, porque el reporte de tareas disponible indexa 185 codigos MOON mientras la carpeta acumula anos de historia. El mecanismo es correcto — se valido caso por caso — pero para clasificar el historico completo haria falta un reporte de Moondesk mas amplio. Para la cartera activa no es limitante: los componentes que seguimos si quedan cubiertos.
+
+**Resultado operativo**: con las cinco fuentes cruzadas, **8 componentes estan a un solo requisito de cerrarse y en todos falta lo mismo: la estructura en receta**. Ejemplo completo, PYLOBER PROSPECTO (`SE10/70`), cumple 5 de 6: codigo pedido, formalizado en SAP, arte aprobado en Moondesk, especificacion y plano publicados en `DOCUMENTOS APROBADOS/PROSPECTOS/SE10-70`; falta solo la receta. Coincide con lo que anticipo negocio: el registro de recetas empezo hace poco y lo que falta, falta de verdad.
+
 ### Indice complementario de especificaciones y planos
 `OneDrive/Especificaciones, planos y artes de Material de Empaque/CODIGO DE MATERIALES - ESPECIFICACIONES - PLANOS.xlsx` — 23 hojas por tipo de componente, **1.581 codigos** mapeando `codigo de material -> especificacion -> plano -> codigo Scilife`. Cobertura: 69% con especificacion, 72% con plano, **57% cargado en Scilife** (que es la señal de "disponible para Compras"). Se vincula por codigo de material, igual que SAP.
 Ademas hay carpetas con los archivos (PLANOS APROBADOS 251, Estuches 438, Etiquetas 97) y los nombres contienen el `MOONxxxxx` que Moondesk usa como Cod. Plano, lo que da un puente entre ambas fuentes.

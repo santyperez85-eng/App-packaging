@@ -170,7 +170,9 @@ export const moondeskReportService = {
           documentType,
           name: candidate.row.description ?? candidate.row.documentType ?? "Documento Moondesk",
           approved: candidate.approved,
-          versionLabel: candidate.row.latestVersion
+          versionLabel: candidate.row.latestVersion,
+          drawingCode: candidate.row.drawingCode,
+          sourceDocumentType: candidate.row.documentType
         },
         create: {
           externalDocumentId,
@@ -178,7 +180,9 @@ export const moondeskReportService = {
           documentType,
           name: candidate.row.description ?? candidate.row.documentType ?? "Documento Moondesk",
           approved: candidate.approved,
-          versionLabel: candidate.row.latestVersion
+          versionLabel: candidate.row.latestVersion,
+          drawingCode: candidate.row.drawingCode,
+          sourceDocumentType: candidate.row.documentType
         }
       });
 

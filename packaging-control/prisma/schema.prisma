@@ -621,11 +621,20 @@ model MoondeskDocument {
   externalDocumentId String?      @unique
   approved           Boolean      @default(false)
   versionLabel       String?
+  /**
+   * Codigo `MOONxxxxx` que Moondesk asigna al documento. Es la clave para cruzar
+   * contra los archivos publicados en DOCUMENTOS APROBADOS, cuyos nombres se
+   * generan al descargarlos de Moondesk.
+   */
+  drawingCode        String?
+  /** Tipo tal como lo reporta Moondesk (Plano, Especificacion, Estuche, ...). */
+  sourceDocumentType String?
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
   moondeskTask       MoondeskTask @relation(fields: [moondeskTaskId], references: [id])
 
   @@index([moondeskTaskId])
+  @@index([drawingCode])
   @@map("moondesk_documents")
 }
 
@@ -839,4 +848,27 @@ model ImportSapRaw {
   @@index([batchId, processingStatus])
   @@unique([batchId, materialCode])
   @@map("import_sap_raw")
+}
+
+/**
+ * Documentos publicados para un codigo de material en la carpeta
+ * DOCUMENTOS APROBADOS. Se persiste el resultado del escaneo porque recorrer las
+ * ~10.000 archivos de la carpeta sincronizada tarda mas de un minuto.
+ */
+model ApprovedDocumentSet {
+  id                 String   @id @default(cuid())
+  materialCode       String   @unique
+  materialTypeFolder String?
+  folderName         String?
+  hasSpecification   Boolean  @default(false)
+  hasDrawing         Boolean  @default(false)
+  hasArtwork         Boolean  @default(false)
+  /** Codigos MOONxxxxx hallados en los nombres de archivo. */
+  moondeskCodes      String[]
+  fileCount          Int      @default(0)
+  /** Archivos cuyo tipo no se pudo determinar ni por nombre ni por Moondesk. */
+  unclassifiedFiles  Int      @default(0)
+  scannedAt          DateTime @default(now())
+
+  @@map("approved_document_sets")
 }

@@ -181,29 +181,84 @@ function approvedArt(item: ChecklistRecord): ClosureRequirement {
 }
 
 /**
- * Especificacion y plano vienen del indice de documentos aprobados. Todavia no
- * esta integrado, asi que se reportan como pendientes de fuente en lugar de
- * darlos por incumplidos: decir "falta el plano" sin haber mirado el repositorio
- * seria afirmar algo que no verificamos.
+ * Especificacion y plano salen de la carpeta DOCUMENTOS APROBADOS. Sin un codigo
+ * de material no hay carpeta que mirar, y sin escaneo no se verifico nada: en
+ * ninguno de esos dos casos corresponde afirmar que el documento falta.
  */
-function documentAvailability(key: "specification" | "drawing", label: string): ClosureRequirement {
+function documentAvailability(
+  key: "specification" | "drawing",
+  label: string,
+  params: { materialCode: string | null; docs: ApprovedDocumentAvailability | null | undefined; present: boolean }
+): ClosureRequirement {
+  if (!params.materialCode) {
+    return {
+      key,
+      label,
+      status: "missing",
+      detail: "El componente todavía no tiene código de material, así que no hay carpeta publicada que revisar.",
+      source: "Documentos aprobados"
+    };
+  }
+
+  if (!params.docs) {
+    return {
+      key,
+      label,
+      status: "missing",
+      detail: `No hay carpeta publicada para ${params.materialCode} en DOCUMENTOS APROBADOS.`,
+      source: "Documentos aprobados"
+    };
+  }
+
   return {
     key,
     label,
-    status: "missing",
-    detail: "Pendiente de integrar el índice de especificaciones y planos aprobados.",
+    status: params.present ? "met" : "missing",
+    detail: params.present
+      ? `Publicado en DOCUMENTOS APROBADOS/${params.docs.materialTypeFolder ?? "?"}/${params.docs.folderName ?? params.materialCode}.`
+      : `La carpeta de ${params.materialCode} existe pero no tiene ${label.toLowerCase()}.`,
     source: "Documentos aprobados"
   };
 }
 
-export function evaluateClosureChecklist(item: ChecklistRecord): ClosureChecklist {
+/** Lo que el checklist necesita saber de la carpeta de documentos publicados. */
+export type ApprovedDocumentAvailability = {
+  materialTypeFolder: string | null;
+  folderName: string | null;
+  hasSpecification: boolean;
+  hasDrawing: boolean;
+};
+
+/** Codigo por el que buscar la carpeta publicada, de mas a menos confiable. */
+export function checklistMaterialCode(item: ChecklistRecord) {
+  return (
+    item.materialMaster?.materialCode ??
+    item.expectedMaterialCode ??
+    item.materialRequest?.linkedMaterialCode ??
+    null
+  );
+}
+
+export function evaluateClosureChecklist(
+  item: ChecklistRecord,
+  approvedDocs?: ApprovedDocumentAvailability | null
+): ClosureChecklist {
+  const materialCode = checklistMaterialCode(item);
   const requirements: ClosureRequirement[] = [
     codeRequested(item),
     codeFormalized(item),
     recipeStructure(item),
     approvedArt(item),
-    documentAvailability("specification", "Especificación disponible"),
-    documentAvailability("drawing", "Plano disponible")
+    documentAvailability("specification", "Especificación disponible", {
+      materialCode,
+      docs: approvedDocs,
+      present: Boolean(approvedDocs?.hasSpecification)
+    }),
+    documentAvailability("drawing", "Plano disponible", {
+      materialCode,
+      docs: approvedDocs,
+      present: Boolean(approvedDocs?.hasDrawing)
+    })
   ];
 
   const applicableRequirements = requirements.filter((requirement) => requirement.status !== "not_applicable");

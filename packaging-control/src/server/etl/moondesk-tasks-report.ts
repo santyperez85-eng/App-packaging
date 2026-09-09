@@ -358,6 +358,41 @@ export function buildMoondeskReport(params: BuildMoondeskReportParams): Moondesk
   };
 }
 
+/**
+ * Indice `MOONxxxxx` -> "Tipo de Documento" a partir del reporte completo de
+ * tareas, sin filtrar por proyecto ni por slot.
+ *
+ * Los archivos publicados en DOCUMENTOS APROBADOS se descargan de Moondesk ya
+ * nombrados con ese codigo, y muchos no dicen en el nombre si son plano,
+ * especificacion o arte. Este indice es el que resuelve esa clasificacion, y
+ * necesita cubrir todos los codigos del reporte, no solo los de los proyectos
+ * que la aplicacion sigue.
+ */
+export function parseMoondeskTaskTypesByCode(workbookPath: string, sheetName?: string): Map<string, string> {
+  const { matrix } = readMatrix(workbookPath, sheetName);
+  const { headerRowIndex, columnByName } = locateHeader(matrix);
+  const getValue = columnGetter(columnByName);
+  const byCode = new Map<string, string>();
+
+  for (let rowIndex = headerRowIndex + 1; rowIndex < matrix.length; rowIndex += 1) {
+    const row = matrix[rowIndex] ?? [];
+    const drawingCode = stringOrNull(getValue(row, ["Cod. Plano", "Cod Plano"]));
+    const documentType = stringOrNull(getValue(row, ["Tipo de Documento"]));
+
+    if (!drawingCode || !documentType) {
+      continue;
+    }
+
+    const key = drawingCode.trim().toUpperCase();
+
+    if (!byCode.has(key)) {
+      byCode.set(key, documentType);
+    }
+  }
+
+  return byCode;
+}
+
 // Convierte un serial de fecha de Excel a Date (epoch 1899-12-30).
 export function excelSerialToDate(serial: number | null): Date | null {
   if (serial === null || !Number.isFinite(serial)) {

@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { isMockPreviewEnabled, mockData } from "@/server/mock-data";
 import { projectsRepository } from "@/server/repositories/projects-repository";
 import { alertsRepository } from "@/server/repositories/alerts-repository";
-import { evaluateClosureChecklist } from "@/server/rules/closure-checklist";
+import { checklistMaterialCode, evaluateClosureChecklist } from "@/server/rules/closure-checklist";
+import { approvedDocumentsService } from "@/server/services/approved-documents-service";
 import {
   LIFECYCLE_MILESTONE_INCLUDE,
   buildMilestones,
@@ -161,6 +162,11 @@ export const dashboardService = {
       coveragePercent: 0
     }));
     const stageByKey = new Map(stages.map((stage) => [stage.key, stage]));
+    // Los documentos publicados se buscan por codigo de material, en una sola
+    // consulta para todos los componentes.
+    const approvedDocs = await approvedDocumentsService.getByMaterialCodes(
+      items.map((item) => checklistMaterialCode(item)).filter((code): code is string => Boolean(code))
+    );
     // "Que falta" en lugar de "donde esta trabado": el proceso no es secuencial,
     // asi que senalar un unico punto de bloqueo describiria mal la situacion.
     const blockedItems: Array<{
@@ -191,7 +197,11 @@ export const dashboardService = {
       }
 
       // Que le falta al componente para poder cerrarse, sin asumir un orden.
-      const checklist = evaluateClosureChecklist(item);
+      const materialCode = checklistMaterialCode(item);
+      const checklist = evaluateClosureChecklist(
+        item,
+        materialCode ? approvedDocs.get(materialCode.toUpperCase()) ?? null : null
+      );
 
       if (checklist.readyToClose) {
         readyToCloseCount += 1;
