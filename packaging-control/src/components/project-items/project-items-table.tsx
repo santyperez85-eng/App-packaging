@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { StatusBadge } from "@/components/ui/status-badge";
+import { labels } from "@/lib/labels";
 
 type ProjectItemsTableProps = {
   items: Array<{
@@ -8,18 +9,18 @@ type ProjectItemsTableProps = {
     itemKey: string;
     name: string;
     status: string;
-    readinessScore: number;
     criticality: string;
-    project?: { code: string } | null;
+    componentSlot?: string | null;
+    project?: { code: string; name?: string | null; product?: { name: string } | null } | null;
     materialMaster?: { materialCode: string } | null;
     expectedMaterialCode?: string | null;
     alerts?: Array<{ id: string; severity: string; title: string }>;
   }>;
   showProject?: boolean;
   /**
-   * Requisitos de cierre pendientes por item id. Cuando se pasa, la tabla agrega
-   * la columna "Qué falta" para no tener que abrir el lifecycle. Un item que no
-   * figura en el mapa no tiene faltantes.
+   * Requisitos de cierre pendientes por componente. Cuando se pasa, la tabla
+   * agrega la columna "Qué falta" para no tener que abrir cada ficha. Un
+   * componente que no figura en el mapa no tiene faltantes.
    */
   missingByItem?: Record<string, string>;
 };
@@ -32,38 +33,37 @@ export function ProjectItemsTable({ items, showProject = false, missingByItem }:
       <table className="data-table">
         <thead>
           <tr>
-            {showProject ? <th>Proyecto</th> : null}
-            <th>Item</th>
-            <th>Estado</th>
+            {showProject ? <th>Producto</th> : null}
+            <th>Componente</th>
+            <th>Tipo</th>
+            <th>Código de material</th>
             {showMissingColumn ? <th>Qué falta</th> : null}
-            <th>Readiness</th>
-            <th>Criticidad</th>
-            <th>Material</th>
-            <th>Alertas</th>
+            <th>Estado</th>
           </tr>
         </thead>
         <tbody>
           {items.map((item) => (
             <tr key={item.id}>
-              {showProject ? <td>{item.project?.code ?? "Sin proyecto"}</td> : null}
+              {showProject ? (
+                <td>{item.project?.product?.name ?? item.project?.name ?? "Sin producto"}</td>
+              ) : null}
               <td>
-                <Link className="table-link" href={`/project-items/${item.id}`}>
-                  {item.itemKey}
+                <Link className="table-link" href={`/componentes/${item.id}`}>
+                  {item.name}
                 </Link>
-                <div className="table-subtitle">{item.name}</div>
               </td>
+              <td>{labels.componentSlot(item.componentSlot)}</td>
               <td>
-                <StatusBadge label={item.status} />
+                {item.materialMaster?.materialCode ?? item.expectedMaterialCode ?? (
+                  <span className="muted-text">Sin código</span>
+                )}
               </td>
               {showMissingColumn ? (
-                <td>
-                  {missingByItem?.[item.id] || <span className="muted-text">Listo para cerrar</span>}
-                </td>
+                <td>{missingByItem?.[item.id] || <span className="muted-text">Nada: está cerrado</span>}</td>
               ) : null}
-              <td>{item.readinessScore}</td>
-              <td>{item.criticality}</td>
-              <td>{item.materialMaster?.materialCode ?? item.expectedMaterialCode ?? "Pendiente"}</td>
-              <td>{item.alerts?.length ?? 0}</td>
+              <td>
+                <StatusBadge label={labels.itemStatus(item.status)} />
+              </td>
             </tr>
           ))}
         </tbody>

@@ -15,6 +15,7 @@ import { isMockPreviewEnabled, mockData } from "@/server/mock-data";
 import { projectItemsRepository } from "@/server/repositories/project-items-repository";
 import { alertsRepository } from "@/server/repositories/alerts-repository";
 import { evaluateProjectItemRules } from "@/server/rules/project-item-rules";
+import { approvedDocumentsService } from "@/server/services/approved-documents-service";
 import { projectsService } from "@/server/services/projects-service";
 
 export const projectItemsService = {
@@ -114,7 +115,15 @@ export const projectItemsService = {
       throw new Error("Project item not found");
     }
 
-    const evaluation = evaluateProjectItemRules(item);
+    // La carpeta DOCUMENTOS APROBADOS es evidencia mas directa que la planilla
+    // interna de materiales: sin esto, un plano publicado seguia contando como
+    // faltante y la ficha del producto se contradecia consigo misma.
+    const materialCode = item.materialMaster?.materialCode ?? item.expectedMaterialCode ?? null;
+    const publishedDocuments = materialCode
+      ? ((await approvedDocumentsService.getByMaterialCodes([materialCode])).get(materialCode.toUpperCase()) ?? null)
+      : null;
+
+    const evaluation = evaluateProjectItemRules(item, new Date(), { publishedDocuments });
 
     for (const alert of evaluation.activeAlerts) {
       await alertsRepository.upsertRuleAlert({

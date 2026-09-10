@@ -24,6 +24,30 @@ export type ClosureRequirementKey =
 
 export type ClosureRequirementStatus = "met" | "missing" | "at_risk" | "not_applicable";
 
+/**
+ * Nombre corto de cada requisito, para cuando hay que listar varios juntos
+ * ("Falta: Receta · Arte") o encabezar una columna. El label largo se usa
+ * cuando el requisito se muestra solo.
+ */
+export const CLOSURE_REQUIREMENT_SHORT_LABELS: Record<ClosureRequirementKey, string> = {
+  code_requested: "Alta",
+  code_formalized: "SAP",
+  recipe_structure: "Receta",
+  approved_art: "Arte",
+  specification: "Especificación",
+  drawing: "Plano"
+};
+
+/** Orden fijo de los requisitos. No es una secuencia: es el orden de lectura. */
+export const CLOSURE_REQUIREMENT_ORDER: ClosureRequirementKey[] = [
+  "code_requested",
+  "code_formalized",
+  "recipe_structure",
+  "approved_art",
+  "specification",
+  "drawing"
+];
+
 export type ClosureRequirement = {
   key: ClosureRequirementKey;
   label: string;
@@ -72,7 +96,7 @@ function codeRequested(item: ChecklistRecord): ClosureRequirement {
     detail: met
       ? `Pedido de código ${item.materialRequest?.requestCode ?? "registrado"}.`
       : "No hay alta de código para este componente.",
-    source: "Alta de Mat"
+    source: "Alta de código"
   };
 }
 

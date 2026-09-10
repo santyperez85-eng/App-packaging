@@ -131,12 +131,32 @@ export const projectsRepository = {
     if (existing) {
       return prisma.project.update({
         where: { id: existing.id },
-        data: payload
+        data: {
+          ...payload,
+          // Las fechas no vienen de ninguna fuente: la plantilla de PM no tiene
+          // ningun campo de fecha, asi que se cargan a mano desde la ficha del
+          // producto. Pisarlas con null en cada reimportacion borraria el unico
+          // lugar donde existe el dato, sin que nadie lo note.
+          startDate: params.startDate ?? undefined,
+          targetLaunchDate: params.targetLaunchDate ?? undefined
+        }
       });
     }
 
     return prisma.project.create({
       data: payload
+    });
+  },
+
+  /**
+   * La fecha de lanzamiento se carga a mano porque no existe en ninguna fuente.
+   * A diferencia del upsert de importacion, aca `null` si significa borrarla:
+   * es una accion explicita de la persona que la esta editando.
+   */
+  updateLaunchDate(projectId: string, targetLaunchDate: Date | null) {
+    return prisma.project.update({
+      where: { id: projectId },
+      data: { targetLaunchDate }
     });
   },
 

@@ -9,12 +9,11 @@ export default async function ReviewPage() {
   return (
     <div className="stack-lg">
       <section className="page-intro">
-        <span className="eyebrow">Decisiones operativas</span>
-        <h1>Revisión manual</h1>
-        <p>
-          Casos que el matching automático no resuelve solo: confirmaciones de estructura pre-SAP, evidencias
-          ambiguas y pedidos de código en competencia. Cada decisión queda trazada y sobrevive a las
-          re-consolidaciones.
+        <h1>Decisiones</h1>
+        <p className="page-intro__summary">
+          Casos que la app no puede resolver sola porque hay más de una lectura posible: un componente que podría
+          corresponder a dos códigos, una estructura que hay que confirmar, dos altas compitiendo por el mismo
+          material. Lo que decidas queda guardado y no se pierde cuando se vuelven a importar los archivos.
         </p>
       </section>
 

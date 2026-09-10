@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { labels, readableProjectCode } from "@/lib/labels";
 
 type ReviewQueueData = {
   generatedAt: string;
@@ -117,8 +118,8 @@ export function ReviewQueue({ queue }: { queue: ReviewQueueData }) {
 
       {queue.competingMaterialRequests.length ? (
         <SectionCard
-          title={`Pedidos de código en competencia (${queue.competingMaterialRequests.length})`}
-          description="Más de un pedido de código evidencia el mismo componente. Elegí cuál es el vínculo canónico."
+          title={`Dos altas para el mismo componente (${queue.competingMaterialRequests.length})`}
+          description="Hay más de un pedido de código apuntando al mismo componente. Elegí cuál es el que vale."
         >
           <div className="list-stack">
             {queue.competingMaterialRequests.map((entry) => (
@@ -126,14 +127,14 @@ export function ReviewQueue({ queue }: { queue: ReviewQueueData }) {
                 <header className="review-card__header">
                   <div>
                     <div className="list-row__title">
-                      <Link className="table-link" href={`/project-items/${entry.projectItem.id}`}>
-                        {entry.projectItem.project.code} · {entry.projectItem.itemKey}
+                      <Link className="table-link" href={`/componentes/${entry.projectItem.id}`}>
+                        {entry.projectItem.name}
                       </Link>
                     </div>
-                    <div className="list-row__subtitle">{entry.projectItem.name}</div>
+                    <div className="list-row__subtitle">{readableProjectCode(entry.projectItem.project.code)}</div>
                   </div>
                   <span className="metric-pill">
-                    Vínculo actual: {entry.linkedRequest?.requestCode ?? "Sin vínculo"}
+                    Hoy vale: {entry.linkedRequest?.requestCode ?? "ninguno"}
                   </span>
                 </header>
                 <div className="list-stack">
@@ -147,7 +148,7 @@ export function ReviewQueue({ queue }: { queue: ReviewQueueData }) {
                           <div className="list-row__subtitle">{candidate.requestedDescription ?? "Sin descripción"}</div>
                         </div>
                         <div className="list-row__meta">
-                          {candidate.isCurrentLink ? <StatusBadge label="ACTUAL" /> : null}
+                          {candidate.isCurrentLink ? <StatusBadge label={{ text: "Vínculo actual", tone: "success" }} /> : null}
                           <button
                             type="button"
                             className="action-button"
@@ -161,7 +162,7 @@ export function ReviewQueue({ queue }: { queue: ReviewQueueData }) {
                               )
                             }
                           >
-                            {busyKey === actionKey ? "Confirmando…" : "Elegir como canónico"}
+                            {busyKey === actionKey ? "Confirmando…" : "Es este"}
                           </button>
                         </div>
                       </div>
@@ -195,8 +196,8 @@ export function ReviewQueue({ queue }: { queue: ReviewQueueData }) {
                     <div>
                       <div className="list-row__title">
                         {entry.projectItem ? (
-                          <Link className="table-link" href={`/project-items/${entry.projectItem.id}`}>
-                            {entry.project?.code} · {entry.projectItem.itemKey}
+                          <Link className="table-link" href={`/componentes/${entry.projectItem.id}`}>
+                            {entry.projectItem.name}
                           </Link>
                         ) : (
                           entry.title
@@ -204,7 +205,7 @@ export function ReviewQueue({ queue }: { queue: ReviewQueueData }) {
                       </div>
                       <div className="list-row__subtitle">{entry.message}</div>
                     </div>
-                    <StatusBadge label={entry.severity} />
+                    <StatusBadge label={labels.severity(entry.severity)} />
                   </header>
                   <div className="review-card__actions">
                     <input
@@ -250,15 +251,14 @@ export function ReviewQueue({ queue }: { queue: ReviewQueueData }) {
                     <div>
                       <div className="list-row__title">{entry.rawLabel ?? entry.sourceRecordKey}</div>
                       <div className="list-row__subtitle">
-                        {entry.sourceType} ·{" "}
-                        <Link className="table-link" href={`/project-items/${entry.projectItem.id}`}>
-                          {entry.projectItem.project.code} · {entry.projectItem.itemKey}
+                        {labels.source(entry.sourceType)} ·{" "}
+                        <Link className="table-link" href={`/componentes/${entry.projectItem.id}`}>
+                          {entry.projectItem.name}
                         </Link>
                       </div>
                     </div>
                     <div className="list-row__meta">
-                      <StatusBadge label={entry.matchStatus} />
-                      <span className="metric-pill">{entry.matchRule ?? "Sin regla"}</span>
+                      <StatusBadge label={labels.matchingStatus(entry.matchStatus)} />
                     </div>
                   </header>
                   <div className="review-card__actions">

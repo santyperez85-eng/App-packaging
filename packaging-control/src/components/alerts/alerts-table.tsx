@@ -1,11 +1,7 @@
 import Link from "next/link";
 
 import { StatusBadge } from "@/components/ui/status-badge";
-
-function formatDate(value?: Date | string | null) {
-  if (!value) return "Sin fecha";
-  return new Intl.DateTimeFormat("es-AR", { dateStyle: "medium" }).format(new Date(value));
-}
+import { formatShortDate, labels } from "@/lib/labels";
 
 type AlertsTableProps = {
   alerts: Array<{
@@ -14,11 +10,11 @@ type AlertsTableProps = {
     message: string;
     severity: string;
     status: string;
-    project?: { code: string } | null;
+    project?: { code: string; name?: string | null; product?: { name: string } | null } | null;
     projectItem?: { id?: string | null; itemKey?: string | null; name: string } | null;
     createdAt: Date;
   }>;
-  /** La columna Proyecto es redundante cuando la tabla ya esta dentro de uno. */
+  /** La columna Producto es redundante cuando la tabla ya esta dentro de uno. */
   showProject?: boolean;
 };
 
@@ -28,12 +24,11 @@ export function AlertsTable({ alerts, showProject = true }: AlertsTableProps) {
       <table className="data-table">
         <thead>
           <tr>
-            <th>Alerta</th>
-            {showProject ? <th>Proyecto</th> : null}
-            <th>Item</th>
-            <th>Severidad</th>
-            <th>Estado</th>
-            <th>Fecha</th>
+            <th>Aviso</th>
+            {showProject ? <th>Producto</th> : null}
+            <th>Componente</th>
+            <th>Gravedad</th>
+            <th>Desde</th>
           </tr>
         </thead>
         <tbody>
@@ -43,27 +38,26 @@ export function AlertsTable({ alerts, showProject = true }: AlertsTableProps) {
                 <div>{alert.title}</div>
                 <div className="table-subtitle">{alert.message}</div>
               </td>
-              {showProject ? <td>{alert.project?.code ?? "Sin proyecto"}</td> : null}
+              {showProject ? (
+                <td>{alert.project?.product?.name ?? alert.project?.name ?? "Sin producto"}</td>
+              ) : null}
               <td>
                 {alert.projectItem ? (
                   alert.projectItem.id ? (
-                    <Link className="table-link" href={`/project-items/${alert.projectItem.id}`}>
-                      {alert.projectItem.itemKey ?? alert.projectItem.name}
+                    <Link className="table-link" href={`/componentes/${alert.projectItem.id}`}>
+                      {alert.projectItem.name}
                     </Link>
                   ) : (
-                    (alert.projectItem.itemKey ?? alert.projectItem.name)
+                    alert.projectItem.name
                   )
                 ) : (
-                  <span className="muted-text">Alerta de proyecto</span>
+                  <span className="muted-text">Es del producto entero</span>
                 )}
               </td>
               <td>
-                <StatusBadge label={alert.severity} />
+                <StatusBadge label={labels.severity(alert.severity)} />
               </td>
-              <td>
-                <StatusBadge label={alert.status} />
-              </td>
-              <td>{formatDate(alert.createdAt)}</td>
+              <td>{formatShortDate(alert.createdAt)}</td>
             </tr>
           ))}
         </tbody>

@@ -337,8 +337,8 @@ function dimensionDefinition(item: ProjectItemRulesRecord): DimensionEvaluation 
       ? buildRuleAlert({
           ruleCode: "DEFINITION_AMBIGUOUS",
           type: "DEFINITION_AMBIGUOUS",
-          title: "Definicion ambigua",
-          message: `La definicion operativa de ${item.name} es ambigua y requiere revision manual.`,
+          title: "No queda claro qué componente es",
+          message: `Hay más de una lectura posible para ${item.name}. Necesita que alguien decida cuál corresponde.`,
           severity: AlertSeverity.CRITICAL,
           problemClass: "inconsistencia",
           dimension: "definition",
@@ -350,8 +350,8 @@ function dimensionDefinition(item: ProjectItemRulesRecord): DimensionEvaluation 
       ? buildRuleAlert({
           ruleCode: "CROSS_SOURCE_INCONSISTENCY",
           type: "CROSS_SOURCE_INCONSISTENCY",
-          title: "Inconsistencia entre matching e identificacion",
-          message: `El item ${item.name} figura con matching exacto, pero no quedo identificado de forma consistente.`,
+          title: "La vinculación no cierra",
+          message: `${item.name} figura vinculado con seguridad, pero los datos con los que se vinculó no coinciden entre sí.`,
           severity: AlertSeverity.CRITICAL,
           problemClass: "inconsistencia",
           dimension: "definition",
@@ -363,8 +363,8 @@ function dimensionDefinition(item: ProjectItemRulesRecord): DimensionEvaluation 
       ? buildRuleAlert({
           ruleCode: "DEFINITION_MISSING",
           type: "DEFINITION_MISSING",
-          title: "Definicion incompleta",
-          message: `El componente ${item.name} no esta suficientemente definido para continuar el seguimiento operativo.`,
+          title: "Falta definir el componente",
+          message: `${item.name} no está lo bastante definido como para seguirlo.`,
           severity: AlertSeverity.WARNING,
           problemClass: "incompletitud",
           dimension: "definition",
@@ -465,8 +465,8 @@ function dimensionCodification(item: ProjectItemRulesRecord): DimensionEvaluatio
       buildRuleAlert({
         ruleCode: "CODE_NOT_REQUESTED",
         type: "CODE_NOT_REQUESTED",
-        title: "Codigo no solicitado",
-        message: `El componente ${item.name} requiere codificacion y todavia no tiene pedido de codigo.`,
+        title: "Falta pedir el código",
+        message: `${item.name} necesita código de material y todavía no hay alta.`,
         severity: AlertSeverity.WARNING,
         problemClass: "incompletitud",
         dimension: "codification",
@@ -514,8 +514,8 @@ function dimensionPreSapStructure(item: ProjectItemRulesRecord): DimensionEvalua
         buildRuleAlert({
           ruleCode: "PRE_BOM_PENDING_CONFIRMATION",
           type: "PRE_BOM_PENDING_CONFIRMATION",
-          title: "Pre-BOM pendiente de confirmacion",
-          message: `La estructura pre-SAP de ${item.name} tiene confirmaciones operativas pendientes.`,
+          title: "La estructura espera confirmación",
+          message: `${item.name} está en la receta, pero el bloque tiene datos sin confirmar.`,
           severity: AlertSeverity.WARNING,
           problemClass: "incompletitud",
           dimension: "pre_sap_structure",
@@ -536,8 +536,8 @@ function dimensionPreSapStructure(item: ProjectItemRulesRecord): DimensionEvalua
       buildRuleAlert({
         ruleCode: "PRE_BOM_MISSING",
         type: "PRE_BOM_MISSING",
-        title: "Pre-BOM faltante",
-        message: `El componente ${item.name} todavia no tiene estructura pre-SAP registrada.`,
+        title: "Falta cargarlo en la receta",
+        message: `${item.name} todavía no figura en la estructura de la receta.`,
         severity: AlertSeverity.WARNING,
         problemClass: "incompletitud",
         dimension: "pre_sap_structure",
@@ -575,8 +575,8 @@ function dimensionSapFormalization(item: ProjectItemRulesRecord): DimensionEvalu
         buildRuleAlert({
           ruleCode: "PHASE_MISMATCH",
           type: "PHASE_MISMATCH",
-          title: "Desalineacion de fase",
-          message: `La fase operativa de ${item.name} no coincide entre pre-SAP y la informacion formal disponible.`,
+          title: "La receta y SAP no van al mismo ritmo",
+          message: `Lo que dice la receta de ${item.name} y lo que dice SAP describen momentos distintos del proyecto.`,
           severity: AlertSeverity.CRITICAL,
           problemClass: "inconsistencia",
           dimension: "sap_formalization",
@@ -603,7 +603,7 @@ function dimensionSapFormalization(item: ProjectItemRulesRecord): DimensionEvalu
         buildRuleAlert({
           ruleCode: "SAP_MATERIAL_CODE_ERRONEOUS",
           type: "SAP_MATERIAL_CODE_ERRONEOUS",
-          title: "Codigo de material erroneo en SAP",
+          title: "Código pedido por error",
           message: `El codigo asociado a ${item.name} figura en SAP con marca de borrado: se pidio por error y no debe usarse. Hay que corregir la codificacion del componente.`,
           severity: AlertSeverity.CRITICAL,
           problemClass: "inconsistencia",
@@ -626,7 +626,7 @@ function dimensionSapFormalization(item: ProjectItemRulesRecord): DimensionEvalu
         buildRuleAlert({
           ruleCode: "SAP_MATERIAL_DISCONTINUED",
           type: "SAP_MATERIAL_DISCONTINUED",
-          title: "Material discontinuado en SAP",
+          title: "Material discontinuado",
           message: `El material de ${item.name} figura como discontinuado en SAP (grupo 051): estuvo en uso y se dio de baja. Hay que definir el reemplazo.`,
           severity: AlertSeverity.CRITICAL,
           problemClass: "inconsistencia",
@@ -663,8 +663,8 @@ function dimensionSapFormalization(item: ProjectItemRulesRecord): DimensionEvalu
             buildRuleAlert({
               ruleCode: "REQUEST_WITHOUT_FORMAL_MATERIAL",
               type: "REQUEST_WITHOUT_FORMAL_MATERIAL",
-              title: "Pedido sin material formal",
-              message: `Existe avance de codificacion para ${item.name}, pero todavia no hay material formal en SAP.`,
+              title: "El código se pidió pero no está en SAP",
+              message: `Hay un alta para ${item.name}, pero el código todavía no aparece en el maestro de SAP.`,
               severity: AlertSeverity.WARNING,
               problemClass: "incompletitud",
               dimension: "sap_formalization",
@@ -687,7 +687,10 @@ function dimensionSapFormalization(item: ProjectItemRulesRecord): DimensionEvalu
   };
 }
 
-function dimensionInternalTechnicalDocs(item: ProjectItemRulesRecord): DimensionEvaluation {
+function dimensionInternalTechnicalDocs(
+  item: ProjectItemRulesRecord,
+  published?: PublishedDocuments | null
+): DimensionEvaluation {
   if (!item.requiresTechnicalDocs) {
     return {
       key: "internal_technical_docs",
@@ -710,10 +713,14 @@ function dimensionInternalTechnicalDocs(item: ProjectItemRulesRecord): Dimension
     };
   }
 
+  // La planilla interna de materiales no siempre registra el codigo del plano o
+  // de la especificacion, pero el documento puede estar publicado igual. Cuando
+  // el escaneo de DOCUMENTOS APROBADOS lo confirma, no corresponde decir que
+  // falta: la carpeta es la evidencia mas directa que hay.
   const missingDocs = compact([
-    !item.materialMaster.drawingCode ? "plano" : null,
-    !item.materialMaster.specificationCode ? "especificacion" : null,
-    !item.materialMaster.technicalSheetCode ? "ficha tecnica" : null
+    !item.materialMaster.drawingCode && !published?.hasDrawing ? "el plano" : null,
+    !item.materialMaster.specificationCode && !published?.hasSpecification ? "la especificación" : null,
+    !item.materialMaster.technicalSheetCode ? "la ficha técnica" : null
   ]);
   const availableDocs = 3 - missingDocs.length;
 
@@ -737,8 +744,8 @@ function dimensionInternalTechnicalDocs(item: ProjectItemRulesRecord): Dimension
       buildRuleAlert({
         ruleCode: "INTERNAL_TECH_DOCS_MISSING",
         type: "INTERNAL_TECH_DOCS_MISSING",
-        title: "Documentacion tecnica interna faltante",
-        message: `El material ${item.materialMaster.materialCode} no tiene ${missingDocs.join(", ")}.`,
+        title: "Falta documentación técnica",
+        message: `De ${item.materialMaster.materialCode} no tenemos ${missingDocs.join(", ")}.`,
         severity: missingDocs.length > 1 ? AlertSeverity.CRITICAL : AlertSeverity.WARNING,
         problemClass: "incompletitud",
         dimension: "internal_technical_docs",
@@ -798,8 +805,8 @@ function dimensionDocumentationApproval(item: ProjectItemRulesRecord, today: Dat
         buildRuleAlert({
           ruleCode: "REVIEW_OVERDUE",
           type: "REVIEW_OVERDUE",
-          title: "Revision vencida",
-          message: `La revision documental de ${item.name} esta vencida y sigue abierta.`,
+          title: "Revisión vencida",
+          message: `La revisión de ${item.name} pasó su plazo y sigue abierta.`,
           severity: AlertSeverity.CRITICAL,
           problemClass: "bloqueo",
           dimension: "documentation_review_approval",
@@ -821,8 +828,8 @@ function dimensionDocumentationApproval(item: ProjectItemRulesRecord, today: Dat
         buildRuleAlert({
           ruleCode: "DESIGN_WITHOUT_REVIEW",
           type: "DESIGN_WITHOUT_REVIEW",
-          title: "Diseno completado sin revision",
-          message: `La tarea de diseno de ${item.name} esta completada y no existe revision asociada.`,
+          title: "Diseño terminado sin revisar",
+          message: `El diseño de ${item.name} figura terminado en Moondesk y nadie lo revisó.`,
           severity: AlertSeverity.CRITICAL,
           problemClass: "bloqueo",
           dimension: "documentation_review_approval",
@@ -832,8 +839,8 @@ function dimensionDocumentationApproval(item: ProjectItemRulesRecord, today: Dat
         buildRuleAlert({
           ruleCode: "APPROVED_DOCUMENT_MISSING",
           type: "APPROVED_DOCUMENT_MISSING",
-          title: "Falta documento aprobado",
-          message: `No existe documento aprobado para ${item.name}.`,
+          title: "Falta el arte aprobado",
+          message: `No hay ningún documento aprobado para ${item.name}.`,
           severity: getApprovedDocumentMissingSeverity(item),
           problemClass: "incompletitud",
           dimension: "documentation_review_approval",
@@ -855,8 +862,8 @@ function dimensionDocumentationApproval(item: ProjectItemRulesRecord, today: Dat
         buildRuleAlert({
           ruleCode: "APPROVED_DOCUMENT_MISSING",
           type: "APPROVED_DOCUMENT_MISSING",
-          title: "Falta documento aprobado",
-          message: `La revision documental de ${item.name} esta en curso, pero aun no existe version aprobada.`,
+          title: "Falta el arte aprobado",
+          message: `La revisión de ${item.name} está en curso, pero todavía no hay una versión aprobada.`,
           severity: getApprovedDocumentMissingSeverity(item),
           problemClass: "incompletitud",
           dimension: "documentation_review_approval",
@@ -878,8 +885,8 @@ function dimensionDocumentationApproval(item: ProjectItemRulesRecord, today: Dat
         buildRuleAlert({
           ruleCode: "APPROVED_DOCUMENT_MISSING",
           type: "APPROVED_DOCUMENT_MISSING",
-          title: "Falta documento aprobado",
-          message: `Existe actividad documental para ${item.name}, pero aun no hay documento aprobado.`,
+          title: "Falta el arte aprobado",
+          message: `Hay movimiento de diseño en ${item.name}, pero todavía ningún documento aprobado.`,
           severity: getApprovedDocumentMissingSeverity(item),
           problemClass: "incompletitud",
           dimension: "documentation_review_approval",
@@ -900,8 +907,8 @@ function dimensionDocumentationApproval(item: ProjectItemRulesRecord, today: Dat
       buildRuleAlert({
         ruleCode: "APPROVED_DOCUMENT_MISSING",
         type: "APPROVED_DOCUMENT_MISSING",
-        title: "Falta documento aprobado",
-        message: `No existe documentacion aprobada para ${item.name}.`,
+        title: "Falta el arte aprobado",
+        message: `${item.name} no tiene documentación aprobada.`,
         severity: getApprovedDocumentMissingSeverity(item),
         problemClass: "incompletitud",
         dimension: "documentation_review_approval",
@@ -927,8 +934,8 @@ function buildOverlayAlerts(item: ProjectItemRulesRecord): RuleAlertSeed[] {
       ? buildRuleAlert({
           ruleCode: "EXPECTED_COMPONENT_MISSING",
           type: "EXPECTED_COMPONENT_MISSING",
-          title: "Componente esperado sin evidencia",
-          message: `El componente esperado ${item.name} todavia no tiene evidencia operativa fuera de PM.`,
+          title: "Sólo lo menciona el PM",
+          message: `La planilla del PM pide ${item.name}, pero ninguna otra fuente lo menciona todavía.`,
           severity: AlertSeverity.INFO,
           problemClass: "incompletitud",
           dimension: "definition",
@@ -940,8 +947,8 @@ function buildOverlayAlerts(item: ProjectItemRulesRecord): RuleAlertSeed[] {
       ? buildRuleAlert({
           ruleCode: "CROSS_SOURCE_INCONSISTENCY",
           type: "CROSS_SOURCE_INCONSISTENCY",
-          title: "Inconsistencia entre fuentes",
-          message: `Las fuentes reconciliadas para ${item.name} no coinciden en el codigo de material (${materialCodeSignals.join(" / ")}).`,
+          title: "Dos fuentes dan códigos distintos",
+          message: `Para ${item.name} las fuentes no coinciden en el código de material: ${materialCodeSignals.join(" / ")}.`,
           severity: AlertSeverity.CRITICAL,
           problemClass: "inconsistencia",
           dimension: "definition",
@@ -953,8 +960,8 @@ function buildOverlayAlerts(item: ProjectItemRulesRecord): RuleAlertSeed[] {
       ? buildRuleAlert({
           ruleCode: "BLOCKING_CHECKS_PENDING",
           type: "BLOCKING_CHECKS_PENDING",
-          title: "Checks bloqueantes pendientes",
-          message: `${blockingChecks.length} check(s) bloqueante(s) impiden liberar ${item.name}.`,
+          title: "Controles pendientes",
+          message: `Quedan ${blockingChecks.length} controles sin pasar que impiden liberar ${item.name}.`,
           severity: AlertSeverity.CRITICAL,
           problemClass: "bloqueo",
           dimension: "documentation_review_approval",
@@ -1018,9 +1025,20 @@ function determineProjectItemStatus(params: {
   return ProjectItemStatus.READY;
 }
 
+/**
+ * Lo que las reglas necesitan saber de la carpeta DOCUMENTOS APROBADOS. Se pasa
+ * como contexto y no como relacion porque la carpeta se indexa por codigo de
+ * material, no por componente.
+ */
+export type PublishedDocuments = {
+  hasSpecification: boolean;
+  hasDrawing: boolean;
+};
+
 export function evaluateProjectItemRules(
   item: ProjectItemRulesRecord,
-  today = new Date()
+  today = new Date(),
+  context?: { publishedDocuments?: PublishedDocuments | null }
 ): {
   status: ProjectItemStatus;
   readinessScore: number;
@@ -1033,7 +1051,7 @@ export function evaluateProjectItemRules(
     dimensionCodification(item),
     dimensionPreSapStructure(item),
     dimensionSapFormalization(item),
-    dimensionInternalTechnicalDocs(item),
+    dimensionInternalTechnicalDocs(item, context?.publishedDocuments),
     dimensionDocumentationApproval(item, today)
   ];
   const dimensionAlerts = dimensions.flatMap((dimension) => dimension.alerts);

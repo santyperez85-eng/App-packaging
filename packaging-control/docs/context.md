@@ -336,6 +336,51 @@ Ademas hay carpetas con los archivos (PLANOS APROBADOS 251, Estuches 438, Etique
 ### Observacion sobre el hito "Pedido de codigo"
 Su estado es `partial` cuando hay alta y `missing` cuando no: **nunca llega a `ready`**, asi que su cobertura sera siempre 0% por construccion. Operativamente el pedido esta completo cuando el codigo fue otorgado, cosa que se sabe por SAP. Conviene revisar la regla para que pase a cubierto cuando existe alta y el material aparece en el maestro; hoy el 0% se lee como "no se pidio nada" cuando en realidad hay 25 pedidos en curso.
 
+## Rediseno de la UI: lectura por producto (2026-09-10)
+
+Pedido textual: "en la ui hay muchos terminos que no me son familiares y entiendo son mas del mundo del desarrollo. Por ejemplo 'health' y/o 'health score'. Ademas de que los terminos no son favorables, el score que sentido tiene que yo lo vea? [...] principalmente tiene que haber facilidad de lectura y procesamiento de informacion. Me tiene que resolver ir a buscar tantas fuentes distintas y cruzar todo medio manualmente."
+
+### Definiciones que dio el usuario (AskUserQuestion, 2026-09-10)
+Las cuatro respuestas apuntaron al mismo lado: **la unidad de lectura es el producto**.
+1. Pantalla de inicio: **estado de cada producto** (una fila por producto), no una bandeja de pendientes ni un agrupado por tema.
+2. Prioridad: **fecha de lanzamiento** (unico criterio elegido).
+3. Trabajo diario: **por producto** ("como viene DAPABER"), no item por item.
+4. Busqueda: **por nombre de producto**.
+
+### Hallazgo que condiciona el orden: los PM no tienen fecha
+Se revisaron los 44 PM importados extrayendo todos los conceptos de la columna A: **ningun concepto de fecha, plazo o cronograma existe en la plantilla**. No es un problema de parseo; la plantilla es una ficha tecnica ("Informacion Standard Basica para avanzar con los Presupuestos y costos"), no un cronograma. `targetLaunchDate` estaba en 0 de 44 proyectos.
+
+Decision: **la fecha se edita a mano desde la ficha del producto** (`PATCH /api/projects/:id`), porque el dato solo lo tiene el usuario. Mientras esta vacia, los productos sin fecha van despues de los que la tienen, ordenados por cantidad de requisitos pendientes. La lista ofrece ademas un selector de orden (fecha / lo que mas falta / lo mas cerca de cerrar / nombre) en vez de adivinar un fallback unico.
+
+**Bug prevenido**: `projectsRepository.upsert` escribia `targetLaunchDate: ... ?? null`, asi que la siguiente reimportacion de PM habria borrado toda fecha cargada a mano. Mismo patron que la perdida de vinculos con SAP. En el camino de update ahora va `?? undefined` (no tocar); el borrado explicito pasa por `updateLaunchDate`.
+
+### Vocabulario: `src/lib/labels.ts`
+Modulo unico que traduce todo enum y clave interna antes de llegar a la pantalla. `StatusBadge` recibe una `Label {text, tone}`; sigue aceptando string suelto solo para `/qa/functional-validation`, que es una herramienta de diagnostico y muestra los valores crudos a proposito.
+
+Se elimino de la UI: **health score**, **readiness score**, "project item", "milestone", "pipeline", "lifecycle", "evidencia", "slot", "matching", "BOM", "pre-SAP", "target", "Internal Ops" y todos los enums crudos (`ACTIVE`, `WAITING_DOCS`, `CRITICAL`...). Los scores siguen calculandose para uso interno pero no se muestran: un numero del 0 al 100 no dice que hacer, y dos productos con el mismo numero pueden estar en situaciones distintas.
+
+Rutas en castellano (`/productos`, `/componentes`, `/avisos`, `/revision`) con redirects desde las viejas en `next.config.mjs`. Los paths de la API **no** cambiaron.
+
+### `portfolio-service.ts`: modelo de lectura por producto
+Arma la cartera una sola vez y la reusan el inicio, la ficha y la lista de componentes. Expone por producto: componentes cerrados/total, `blockers` (faltantes agrupados), `coverage` (cuantos componentes cumplen cada requisito), `attention` (lo que pide una decision propia) y `almostDone`.
+
+**Por que `coverage` y no una lista de faltantes**: la primera version mostraba "que le falta" por producto, pero con la cartera real casi todos deben casi todo, asi que cada fila decia lo mismo y la columna no distinguia nada (99 de 101 componentes esperan receta). Con una columna por requisito la tabla se lee en vertical: se ve de una pasada que el problema de la receta es de la cartera entera y no de un producto.
+
+### Contradiccion corregida en la misma pantalla
+La ficha de PYLOBER mostraba el checklist diciendo "Especificacion ✓ / Plano ✓ (publicados en DOCUMENTOS APROBADOS)" y abajo un aviso **critico** diciendo "El material SE10/70 no tiene plano, especificacion, ficha tecnica". La regla `INTERNAL_TECH_DOCS_MISSING` solo miraba la planilla interna de materiales.
+
+Ahora `evaluateProjectItemRules` recibe un contexto opcional con los documentos publicados y no reporta como faltante lo que la carpeta confirma. Tras recalcular los 101 componentes: los avisos de documentacion tecnica pasaron de mezclar los tres documentos a mencionar solo la ficha tecnica, y 16 de 21 bajaron de CRITICO a ATENCION. **La carpeta es evidencia mas directa que la planilla.**
+
+Tambien se reescribieron todos los titulos y mensajes de aviso al vocabulario del sector ("Pre-BOM faltante" → "Falta cargarlo en la receta", "Codigo no solicitado" → "Falta pedir el codigo").
+
+### Otras decisiones de lectura
+- El **estado heredado** del componente (`WAITING_DOCS` → "Espera documentos") se saco de la ficha y de la lista: duplicaba al checklist y a veces lo contradecia (decia "espera documentos" cuando lo unico que faltaba era la receta).
+- El **detalle tecnico** (recorrido, historia, fuentes, avisos, huecos) vive plegado en un `<details>` al pie de la ficha del componente. Existe para cuando hace falta, no de entrada.
+- Segundo bug de zona horaria del proyecto: una fecha de calendario formateada en horario local se corre un dia (se cargo el 20/11 y mostraba el 19/11). `labels.ts` separa `formatDate` (marcas de tiempo, horario local) de `formatCalendarDate` (fechas de calendario, UTC).
+
+### Verificado
+`npx tsc --noEmit` limpio; 8/8 escenarios de `validate:functional`; las cinco pantallas renderizadas contra la base real sin errores de consola; alta y edicion de fecha de lanzamiento probadas de punta a punta.
+
 ## Proximo paso
 A la espera de: (1) respuesta de Sistemas sobre conexion SAP, (2) API real de Moondesk. Mientras tanto (sin depender de terceros): edicion basica de estados de items desde la UI.
 

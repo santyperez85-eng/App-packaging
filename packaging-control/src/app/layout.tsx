@@ -6,8 +6,8 @@ import { AppShell } from "@/components/layout/app-shell";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Packaging Control",
-  description: "Sistema interno de control de packaging para desarrollo de producto"
+  title: "Control de packaging",
+  description: "Qué le falta a cada producto para poder darse por cerrado"
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

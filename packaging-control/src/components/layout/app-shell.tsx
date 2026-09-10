@@ -2,11 +2,10 @@ import Link from "next/link";
 import { ReactNode } from "react";
 
 const navigation = [
-  { href: "/", label: "Vista ejecutiva" },
-  { href: "/projects", label: "Proyectos" },
-  { href: "/project-items", label: "Project Items" },
-  { href: "/review", label: "Revisión" },
-  { href: "/alerts", label: "Alertas" }
+  { href: "/", label: "Productos" },
+  { href: "/componentes", label: "Componentes" },
+  { href: "/revision", label: "Decisiones" },
+  { href: "/avisos", label: "Avisos" }
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -14,13 +13,12 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="app-shell">
       <header className="topbar">
         <div className="topbar__brand">
-          <span className="topbar__eyebrow">Internal Ops</span>
           <Link href="/" className="topbar__title">
-            Packaging Control
+            Control de packaging
           </Link>
         </div>
 
-        <nav className="topbar__nav" aria-label="Main navigation">
+        <nav className="topbar__nav" aria-label="Secciones">
           {navigation.map((item) => (
             <Link key={item.href} href={item.href} className="nav-link">
               {item.label}

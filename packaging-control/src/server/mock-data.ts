@@ -287,7 +287,268 @@ export function isMockPreviewEnabled() {
   return !process.env.DATABASE_URL;
 }
 
+/**
+ * Cartera de ejemplo para previsualizar la interfaz sin base de datos.
+ * Cubre los tres casos que cambian el dibujo de la pantalla: un producto con
+ * todo cumplido, uno con requisitos pendientes y uno con una senal que pide una
+ * decision (codigo discontinuado).
+ */
+const portfolio = [
+  {
+    id: "mock-project-cos",
+    code: "COS-2026-001",
+    displayName: "Dermacalm Serum",
+    presentation: "30 ml",
+    activeIngredient: null,
+    status: ProjectStatus.ACTIVE as string,
+    launchDate: new Date("2026-06-15").toISOString(),
+    totalComponents: 2,
+    closedComponents: 1,
+    blockers: [
+      { key: "recipe_structure" as const, shortLabel: "Receta", count: 1 },
+      { key: "approved_art" as const, shortLabel: "Arte", count: 1 }
+    ],
+    coverage: [
+      { key: "code_requested" as const, shortLabel: "Alta", met: 2, applicable: 2 },
+      { key: "code_formalized" as const, shortLabel: "SAP", met: 2, applicable: 2 },
+      { key: "recipe_structure" as const, shortLabel: "Receta", met: 1, applicable: 2 },
+      { key: "approved_art" as const, shortLabel: "Arte", met: 1, applicable: 2 },
+      { key: "specification" as const, shortLabel: "Especificación", met: 2, applicable: 2 },
+      { key: "drawing" as const, shortLabel: "Plano", met: 2, applicable: 2 }
+    ],
+    attention: [],
+    components: [
+      {
+        id: "mock-item-box",
+        itemKey: "COS-2026-001-EST",
+        name: "Estuche Dermacalm 30 ml",
+        slot: ComponentSlot.ESTUCHE as string,
+        materialCode: "MAT-EST-001",
+        status: ProjectItemStatus.IN_PROGRESS as string,
+        criticality: "HIGH",
+        requirements: [
+          {
+            key: "code_requested" as const,
+            label: "Código pedido",
+            shortLabel: "Alta",
+            status: "met" as const,
+            detail: "Pedido de código ALTA-2026-014.",
+            source: "Alta de Mat"
+          },
+          {
+            key: "code_formalized" as const,
+            label: "Código formalizado en SAP",
+            shortLabel: "SAP",
+            status: "met" as const,
+            detail: "MAT-EST-001 vigente en SAP.",
+            source: "SAP"
+          },
+          {
+            key: "recipe_structure" as const,
+            label: "Estructura en receta",
+            shortLabel: "Receta",
+            status: "missing" as const,
+            detail: "El componente todavía no está cargado en la receta.",
+            source: "Recetas"
+          },
+          {
+            key: "approved_art" as const,
+            label: "Arte aprobado",
+            shortLabel: "Arte",
+            status: "missing" as const,
+            detail: "Hay actividad de diseño en Moondesk, pero todavía sin versión aprobada.",
+            source: "Moondesk"
+          },
+          {
+            key: "specification" as const,
+            label: "Especificación disponible",
+            shortLabel: "Especificación",
+            status: "met" as const,
+            detail: "Publicado en DOCUMENTOS APROBADOS/ESTUCHES/MAT-EST-001.",
+            source: "Documentos aprobados"
+          },
+          {
+            key: "drawing" as const,
+            label: "Plano disponible",
+            shortLabel: "Plano",
+            status: "met" as const,
+            detail: "Publicado en DOCUMENTOS APROBADOS/ESTUCHES/MAT-EST-001.",
+            source: "Documentos aprobados"
+          }
+        ],
+        missing: ["recipe_structure" as const, "approved_art" as const],
+        atRisk: [],
+        applicable: 6,
+        met: 4,
+        closed: false
+      },
+      {
+        id: "mock-item-label",
+        itemKey: "COS-2026-001-ETQ",
+        name: "Etiqueta frontal Dermacalm 30 ml",
+        slot: ComponentSlot.ETIQUETA as string,
+        materialCode: "MAT-ETQ-014",
+        status: ProjectItemStatus.READY as string,
+        criticality: "MEDIUM",
+        requirements: [
+          {
+            key: "code_requested" as const,
+            label: "Código pedido",
+            shortLabel: "Alta",
+            status: "met" as const,
+            detail: "Pedido de código ALTA-2026-015.",
+            source: "Alta de Mat"
+          },
+          {
+            key: "code_formalized" as const,
+            label: "Código formalizado en SAP",
+            shortLabel: "SAP",
+            status: "met" as const,
+            detail: "MAT-ETQ-014 vigente en SAP.",
+            source: "SAP"
+          },
+          {
+            key: "recipe_structure" as const,
+            label: "Estructura en receta",
+            shortLabel: "Receta",
+            status: "met" as const,
+            detail: "El componente forma parte de la estructura de la receta.",
+            source: "Recetas"
+          },
+          {
+            key: "approved_art" as const,
+            label: "Arte aprobado",
+            shortLabel: "Arte",
+            status: "met" as const,
+            detail: "Moondesk reporta el arte aprobado.",
+            source: "Moondesk"
+          },
+          {
+            key: "specification" as const,
+            label: "Especificación disponible",
+            shortLabel: "Especificación",
+            status: "met" as const,
+            detail: "Publicado en DOCUMENTOS APROBADOS/ETIQUETAS/MAT-ETQ-014.",
+            source: "Documentos aprobados"
+          },
+          {
+            key: "drawing" as const,
+            label: "Plano disponible",
+            shortLabel: "Plano",
+            status: "met" as const,
+            detail: "Publicado en DOCUMENTOS APROBADOS/ETIQUETAS/MAT-ETQ-014.",
+            source: "Documentos aprobados"
+          }
+        ],
+        missing: [],
+        atRisk: [],
+        applicable: 6,
+        met: 6,
+        closed: true
+      }
+    ],
+    readyToClose: false,
+    almostDone: 0
+  },
+  {
+    id: "mock-project-pharma",
+    code: "PHA-2026-014",
+    displayName: "Analgex Forte",
+    presentation: "Comprimidos x 20",
+    activeIngredient: "Ibuprofeno",
+    status: ProjectStatus.BLOCKED as string,
+    launchDate: null,
+    totalComponents: 1,
+    closedComponents: 0,
+    blockers: [{ key: "recipe_structure" as const, shortLabel: "Receta", count: 1 }],
+    coverage: [
+      { key: "code_requested" as const, shortLabel: "Alta", met: 1, applicable: 1 },
+      { key: "code_formalized" as const, shortLabel: "SAP", met: 0, applicable: 1 },
+      { key: "recipe_structure" as const, shortLabel: "Receta", met: 0, applicable: 1 },
+      { key: "approved_art" as const, shortLabel: "Arte", met: 1, applicable: 1 },
+      { key: "specification" as const, shortLabel: "Especificación", met: 1, applicable: 1 },
+      { key: "drawing" as const, shortLabel: "Plano", met: 1, applicable: 1 }
+    ],
+    attention: [
+      {
+        componentName: "Prospecto Analgex Forte",
+        requirement: "Código formalizado en SAP",
+        detail: "El material PRO-0042 está discontinuado (grupo 051): hay que definir el reemplazo."
+      }
+    ],
+    components: [
+      {
+        id: "mock-item-leaflet",
+        itemKey: "PHA-2026-014-PRO",
+        name: "Prospecto Analgex Forte",
+        slot: ComponentSlot.PROSPECTO as string,
+        materialCode: "PRO-0042",
+        status: ProjectItemStatus.BLOCKED as string,
+        criticality: "CRITICAL",
+        requirements: [
+          {
+            key: "code_requested" as const,
+            label: "Código pedido",
+            shortLabel: "Alta",
+            status: "met" as const,
+            detail: "Pedido de código ALTA-2025-233.",
+            source: "Alta de Mat"
+          },
+          {
+            key: "code_formalized" as const,
+            label: "Código formalizado en SAP",
+            shortLabel: "SAP",
+            status: "at_risk" as const,
+            detail: "El material PRO-0042 está discontinuado (grupo 051): hay que definir el reemplazo.",
+            source: "SAP"
+          },
+          {
+            key: "recipe_structure" as const,
+            label: "Estructura en receta",
+            shortLabel: "Receta",
+            status: "missing" as const,
+            detail: "El componente todavía no está cargado en la receta.",
+            source: "Recetas"
+          },
+          {
+            key: "approved_art" as const,
+            label: "Arte aprobado",
+            shortLabel: "Arte",
+            status: "met" as const,
+            detail: "Moondesk reporta el arte aprobado.",
+            source: "Moondesk"
+          },
+          {
+            key: "specification" as const,
+            label: "Especificación disponible",
+            shortLabel: "Especificación",
+            status: "met" as const,
+            detail: "Publicado en DOCUMENTOS APROBADOS/PROSPECTOS/PRO-0042.",
+            source: "Documentos aprobados"
+          },
+          {
+            key: "drawing" as const,
+            label: "Plano disponible",
+            shortLabel: "Plano",
+            status: "met" as const,
+            detail: "Publicado en DOCUMENTOS APROBADOS/PROSPECTOS/PRO-0042.",
+            source: "Documentos aprobados"
+          }
+        ],
+        missing: ["recipe_structure" as const],
+        atRisk: ["code_formalized" as const],
+        applicable: 6,
+        met: 5,
+        closed: false
+      }
+    ],
+    readyToClose: false,
+    almostDone: 1
+  }
+];
+
 export const mockData = {
+  portfolio,
   dashboard: {
     // En preview de UI no hay corte de SAP importado.
     sapSnapshot: null as null | {

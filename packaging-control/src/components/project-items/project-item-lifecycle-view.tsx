@@ -1,36 +1,29 @@
 import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { labels, type Label } from "@/lib/labels";
 import type { projectItemLifecycleService } from "@/server/services/project-item-lifecycle-service";
 
 type LifecycleReadModel = Awaited<ReturnType<typeof projectItemLifecycleService.getProjectItemLifecycle>>;
 
 type EvidenceEntry = LifecycleReadModel["evidences"]["primary"][number];
 
-const MILESTONE_STATUS_LABELS: Record<string, { label: string; tone: "success" | "warning" | "danger" | "neutral" }> = {
-  ready: { label: "Cubierto", tone: "success" },
-  partial: { label: "Parcial", tone: "warning" },
-  missing: { label: "Faltante", tone: "danger" },
-  manual_review: { label: "Revisión manual", tone: "warning" },
-  not_required: { label: "No requerido", tone: "neutral" },
-  not_integrated: { label: "Fuera de fase", tone: "neutral" }
-};
-
-const HEALTH_CONTRIBUTION_LABELS: Record<string, string> = {
-  ready: "Listo",
-  blocked: "Bloqueado",
-  incomplete: "Incompleto",
-  partial: "Parcial",
-  in_progress: "En progreso"
+const MILESTONE_STATUS_LABELS: Record<string, Label> = {
+  ready: { text: "Cubierto", tone: "success" },
+  partial: { text: "A medias", tone: "warning" },
+  missing: { text: "Falta", tone: "danger" },
+  manual_review: { text: "Necesita que decidas vos", tone: "warning" },
+  not_required: { text: "No hace falta", tone: "neutral" },
+  not_integrated: { text: "Todavía no corresponde", tone: "neutral" }
 };
 
 const EVENT_KIND_LABELS: Record<string, string> = {
-  EXPECTATION_DEFINED: "Expectativa definida",
-  CODE_REQUESTED: "Pedido de código",
-  PRE_BOM_STRUCTURE_EVIDENCED: "Estructura pre-SAP evidenciada",
-  ALERT_OPEN: "Alerta abierta",
-  ALERT_RESOLVED: "Alerta resuelta",
-  CURRENT_STATE: "Estado actual"
+  EXPECTATION_DEFINED: "Lo pidió la planilla del PM",
+  CODE_REQUESTED: "Se pidió el código",
+  PRE_BOM_STRUCTURE_EVIDENCED: "Apareció en la estructura",
+  ALERT_OPEN: "Se abrió un aviso",
+  ALERT_RESOLVED: "Se resolvió el aviso",
+  CURRENT_STATE: "Estado de hoy"
 };
 
 function formatDate(value?: string | null) {
@@ -41,8 +34,7 @@ function formatDate(value?: string | null) {
 }
 
 function milestoneStatusBadge(status: string) {
-  const entry = MILESTONE_STATUS_LABELS[status] ?? { label: status, tone: "neutral" as const };
-  return <span className={`status-badge status-badge--${entry.tone}`}>{entry.label}</span>;
+  return <StatusBadge label={MILESTONE_STATUS_LABELS[status] ?? { text: status, tone: "neutral" }} />;
 }
 
 function EvidenceList({ entries, emptyLabel }: { entries: EvidenceEntry[]; emptyLabel: string }) {
@@ -57,12 +49,11 @@ function EvidenceList({ entries, emptyLabel }: { entries: EvidenceEntry[]; empty
           <div>
             <div className="list-row__title">{evidence.rawLabel ?? evidence.sourceRecordKey}</div>
             <div className="list-row__subtitle">
-              {evidence.sourceType} · {evidence.sourceRecordKey}
+              {labels.source(evidence.sourceType)} · {evidence.sourceRecordKey}
             </div>
           </div>
           <div className="list-row__meta">
-            <StatusBadge label={evidence.matchStatus} />
-            <span className="metric-pill">{evidence.matchRule ?? "Sin regla"}</span>
+            <StatusBadge label={labels.matchingStatus(evidence.matchStatus)} />
             <span className="muted-text">Visto {formatDate(evidence.lastSeenAt ?? evidence.createdAt)}</span>
           </div>
         </div>
@@ -71,52 +62,62 @@ function EvidenceList({ entries, emptyLabel }: { entries: EvidenceEntry[]; empty
   );
 }
 
-export function ProjectItemLifecycleView({ lifecycle }: { lifecycle: LifecycleReadModel }) {
+/**
+ * El detalle tecnico de un componente.
+ *
+ * `embedded` lo muestra dentro de la ficha del componente, debajo del
+ * checklist: ahi el encabezado ya lo puso la pagina y repetirlo confunde.
+ */
+export function ProjectItemLifecycleView({
+  lifecycle,
+  embedded = false
+}: {
+  lifecycle: LifecycleReadModel;
+  embedded?: boolean;
+}) {
   const { project, item, derivedState, milestones, evidences, timeline, alerts, inconsistencies, reconstructionGaps, documentation } =
     lifecycle;
 
   return (
     <div className="stack-lg">
-      <section className="page-intro">
-        <span className="eyebrow">
-          {project.code} · {item.itemKey}
-        </span>
-        <h1>{item.name}</h1>
-        <p>Lifecycle operativo reconstruido desde expectativa PM, evidencias, alertas y estado actual.</p>
-        <div className="pill-row">
-          <StatusBadge label={item.status} />
-          <span className="metric-pill">Readiness {item.readinessScore}</span>
-          <span className="metric-pill">Slot {item.componentSlot ?? "Sin slot"}</span>
-          <span className="metric-pill">Matching {item.matchingStatus}</span>
-          <span className="metric-pill">
-            Salud: {HEALTH_CONTRIBUTION_LABELS[derivedState.healthContribution] ?? derivedState.healthContribution}
+      {embedded ? null : (
+        <section className="page-intro">
+          <span className="eyebrow">
+            {project.code} · {item.itemKey}
           </span>
-        </div>
-      </section>
+          <h1>{item.name}</h1>
+          <p>Reconstruido desde la planilla del PM, las fuentes operativas y los avisos que se dispararon.</p>
+          <div className="pill-row">
+            <StatusBadge label={labels.itemStatus(item.status)} />
+            <span className="metric-pill">{labels.componentSlot(item.componentSlot)}</span>
+            <StatusBadge label={labels.matchingStatus(item.matchingStatus)} />
+          </div>
+        </section>
+      )}
 
       <div className="stats-grid stats-grid--four">
-        <StatCard label="Readiness" value={item.readinessScore} hint={`Estado ${item.status}`} />
         <StatCard
-          label="Alertas críticas abiertas"
+          label="Avisos críticos sin resolver"
           value={derivedState.openCriticalAlerts}
           accent={derivedState.openCriticalAlerts ? "danger" : "success"}
         />
         <StatCard
-          label="Alertas warning abiertas"
+          label="Avisos de atención"
           value={derivedState.openWarningAlerts}
           accent={derivedState.openWarningAlerts ? "warning" : "success"}
         />
         <StatCard
-          label="Milestones faltantes"
+          label="Pasos sin cubrir"
           value={derivedState.missingMilestones.length}
-          hint={derivedState.partialMilestones.length ? `${derivedState.partialMilestones.length} parciales` : undefined}
+          hint={derivedState.partialMilestones.length ? `${derivedState.partialMilestones.length} a medias` : undefined}
           accent={derivedState.missingMilestones.length ? "warning" : "success"}
         />
+        <StatCard label="Cómo se vinculó" value={labels.matchingStatus(item.matchingStatus).text} />
       </div>
 
       <SectionCard
-        title="Milestones operativos"
-        description="Hitos del ciclo de vida del componente, en orden operativo."
+        title="Recorrido del componente"
+        description="Cómo se fue armando, según lo que dejó registrado cada fuente. No es el checklist de cierre: es la traza de lo que pasó."
       >
         <div className="milestone-grid">
           {milestones.map((milestone) => (
@@ -129,11 +130,11 @@ export function ProjectItemLifecycleView({ lifecycle }: { lifecycle: LifecycleRe
               <div className="pill-row">
                 {milestone.evidenceRefs.map((ref) => (
                   <span key={`${ref.sourceType}:${ref.sourceRecordKey}`} className="metric-pill">
-                    {ref.sourceType}
+                    {labels.source(ref.sourceType)}
                   </span>
                 ))}
                 {milestone.alertRefs.map((ref, index) => (
-                  <StatusBadge key={`${ref.ruleCode ?? "alert"}:${index}`} label={`${ref.ruleCode ?? "ALERTA"} ${ref.status}`} />
+                  <StatusBadge key={`${ref.ruleCode ?? "alert"}:${index}`} label={labels.alertStatus(ref.status)} />
                 ))}
               </div>
             </article>
@@ -141,7 +142,7 @@ export function ProjectItemLifecycleView({ lifecycle }: { lifecycle: LifecycleRe
         </div>
       </SectionCard>
 
-      <SectionCard title="Timeline operativo" description="Eventos reconstruidos en orden operativo del componente.">
+      <SectionCard title="Historia" description="Lo que fue pasando con este componente, en orden.">
         <ol className="timeline">
           {timeline.map((event) => (
             <li key={event.sequence} className="timeline__entry">
@@ -150,12 +151,12 @@ export function ProjectItemLifecycleView({ lifecycle }: { lifecycle: LifecycleRe
                 <div className="timeline__heading">
                   <span className="list-row__title">{event.title}</span>
                   <div className="list-row__meta">
-                    {event.severity ? <StatusBadge label={event.severity} /> : null}
-                    {event.status ? <StatusBadge label={event.status} /> : null}
+                    {event.severity ? <StatusBadge label={labels.severity(event.severity)} /> : null}
+                    {event.status ? <StatusBadge label={labels.eventStatus(event.status)} /> : null}
                   </div>
                 </div>
                 <div className="list-row__subtitle">
-                  {EVENT_KIND_LABELS[event.kind] ?? event.kind} · {event.stage} · {formatDate(event.occurredAt)}
+                  {EVENT_KIND_LABELS[event.kind] ?? event.kind} · {formatDate(event.occurredAt)}
                 </div>
               </div>
             </li>
@@ -164,25 +165,23 @@ export function ProjectItemLifecycleView({ lifecycle }: { lifecycle: LifecycleRe
       </SectionCard>
 
       <div className="grid-two">
-        <SectionCard title="Evidencia primaria" description="Expectativa PM y evidencias primarias del item.">
-          <EvidenceList entries={evidences.primary} emptyLabel="Sin evidencia primaria persistida." />
+        <SectionCard title="Lo que declaró la planilla del PM" description="La fuente que define qué componentes tiene que tener el producto.">
+          <EvidenceList entries={evidences.primary} emptyLabel="La planilla del PM no dejó registro de este componente." />
         </SectionCard>
 
-        <SectionCard title="Evidencia secundaria" description="Altas, BOM/Recetas y otras fuentes operativas.">
-          <EvidenceList entries={evidences.secondary} emptyLabel="Sin evidencia secundaria persistida." />
+        <SectionCard title="Lo que aportaron las otras fuentes" description="Altas de código, recetas, SAP y Moondesk.">
+          <EvidenceList entries={evidences.secondary} emptyLabel="Ninguna otra fuente menciona este componente todavía." />
         </SectionCard>
       </div>
 
-      <SectionCard title="Alertas del item" description="Alertas abiertas y resueltas asociadas al componente.">
+      <SectionCard title="Avisos de este componente" description="Lo que detectaron las reglas al cruzar las fuentes.">
         {alerts.length ? (
           <div className="table-wrap">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Alerta</th>
-                  <th>Regla</th>
-                  <th>Dimensión</th>
-                  <th>Severidad</th>
+                  <th>Aviso</th>
+                  <th>Gravedad</th>
                   <th>Estado</th>
                   <th>Creada</th>
                   <th>Resuelta</th>
@@ -195,13 +194,11 @@ export function ProjectItemLifecycleView({ lifecycle }: { lifecycle: LifecycleRe
                       <div>{alert.title}</div>
                       <div className="table-subtitle">{alert.message}</div>
                     </td>
-                    <td>{alert.ruleCode ?? "Sin regla"}</td>
-                    <td>{alert.dimension ?? "Sin dimensión"}</td>
                     <td>
-                      <StatusBadge label={alert.severity} />
+                      <StatusBadge label={labels.severity(alert.severity)} />
                     </td>
                     <td>
-                      <StatusBadge label={alert.status} />
+                      <StatusBadge label={labels.alertStatus(alert.status)} />
                     </td>
                     <td>{formatDate(alert.createdAt)}</td>
                     <td>{formatDate(alert.resolvedAt)}</td>
@@ -211,18 +208,18 @@ export function ProjectItemLifecycleView({ lifecycle }: { lifecycle: LifecycleRe
             </table>
           </div>
         ) : (
-          <p className="muted-text">El item no tiene alertas asociadas.</p>
+          <p className="muted-text">Este componente no tiene ningún aviso.</p>
         )}
       </SectionCard>
 
       {documentation ? (
         <SectionCard
-          title="Documentación y aprobación (Moondesk)"
-          description="Revisiones, versiones y métricas de proceso importadas de los reportes de Moondesk."
+          title="Diseño y aprobación en Moondesk"
+          description="Revisiones y tiempos tomados de los reportes de Moondesk."
         >
           <div className="stats-grid stats-grid--four">
-            <StatCard label="Revisiones" value={documentation.metrics.reviewCount} />
-            <StatCard label="Reprocesos" value={documentation.metrics.reprocessCount ?? "—"} accent={documentation.metrics.reprocessCount ? "warning" : "default"} />
+            <StatCard label="Vueltas de revisión" value={documentation.metrics.reviewCount} />
+            <StatCard label="Rehechos" value={documentation.metrics.reprocessCount ?? "—"} accent={documentation.metrics.reprocessCount ? "warning" : "default"} />
             <StatCard label="Días de revisión" value={documentation.metrics.reviewDays ?? "—"} />
             <StatCard label="Días de diseño" value={documentation.metrics.designDays ?? "—"} />
           </div>
@@ -246,7 +243,7 @@ export function ProjectItemLifecycleView({ lifecycle }: { lifecycle: LifecycleRe
                       <td>{review.reviewer ?? "Sin revisor"}</td>
                       <td>{review.role ?? "—"}</td>
                       <td>
-                        <StatusBadge label={review.decision} />
+                        <StatusBadge label={labels.alertStatus(review.decision)} />
                       </td>
                       <td>{review.workingDays ?? "—"}</td>
                       <td>{formatDate(review.startedAt)}</td>
@@ -257,7 +254,7 @@ export function ProjectItemLifecycleView({ lifecycle }: { lifecycle: LifecycleRe
               </table>
             </div>
           ) : (
-            <p className="muted-text">Sin revisiones registradas en Moondesk para este item.</p>
+            <p className="muted-text">Moondesk no registra revisiones para este componente.</p>
           )}
 
           <div className="list-stack" style={{ marginTop: "16px" }}>
@@ -270,7 +267,7 @@ export function ProjectItemLifecycleView({ lifecycle }: { lifecycle: LifecycleRe
                   </div>
                 </div>
                 <div className="list-row__meta">
-                  <StatusBadge label={task.taskStatus} />
+                  <StatusBadge label={{ text: task.taskStatus, tone: "neutral" }} />
                   {task.latestVersionLabel ? <span className="metric-pill">v{task.latestVersionLabel}</span> : null}
                 </div>
               </div>
@@ -280,7 +277,7 @@ export function ProjectItemLifecycleView({ lifecycle }: { lifecycle: LifecycleRe
       ) : null}
 
       <div className="grid-two">
-        <SectionCard title="Inconsistencias" description="Señales que requieren revisión o atención operativa.">
+        <SectionCard title="Datos que no cierran entre sí" description="Diferencias entre lo que dice una fuente y otra.">
           {inconsistencies.length ? (
             <div className="list-stack">
               {inconsistencies.map((entry, index) => (
@@ -290,19 +287,19 @@ export function ProjectItemLifecycleView({ lifecycle }: { lifecycle: LifecycleRe
                     <div className="list-row__subtitle">{entry.message}</div>
                   </div>
                   <div className="list-row__meta">
-                    <StatusBadge label={String(entry.severity)} />
+                    <StatusBadge label={labels.severity(String(entry.severity))} />
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="muted-text">Sin inconsistencias detectadas.</p>
+            <p className="muted-text">Las fuentes coinciden entre sí.</p>
           )}
         </SectionCard>
 
         <SectionCard
-          title="Huecos de reconstrucción"
-          description="Detalle operativo que el estado persistido no permite reconstruir."
+          title="Lo que no se puede saber"
+          description="Detalle que ninguna fuente registra, así que la app no lo puede afirmar."
         >
           {reconstructionGaps.length ? (
             <div className="list-stack">
@@ -317,7 +314,7 @@ export function ProjectItemLifecycleView({ lifecycle }: { lifecycle: LifecycleRe
               ))}
             </div>
           ) : (
-            <p className="muted-text">El lifecycle se reconstruye completo desde el estado persistido.</p>
+            <p className="muted-text">No falta nada: la historia se reconstruye completa.</p>
           )}
         </SectionCard>
       </div>

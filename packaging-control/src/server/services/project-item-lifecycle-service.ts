@@ -210,17 +210,17 @@ function buildFormalMaterialMilestone(item: LifecycleRecord): LifecycleMilestone
 
   const reason = sap
     ? sap.deletionFlag
-      ? `El codigo figura en SAP con marca de borrado: se pidio por error y no debe usarse.${cutSuffix}`
+      ? `El código figura en SAP con marca de borrado: se pidió por error y no debe usarse.${cutSuffix}`
       : sap.discontinued
         ? `El material figura como discontinuado en SAP (grupo 051): estuvo en uso y se dio de baja.${cutSuffix}`
-        : `Material formalizado y vigente en SAP.${cutSuffix}`
+        : `El código está vigente en SAP.${cutSuffix}`
     : item.materialMaster
-      ? `Hay maestro interno, pero el material no aparece en el corte de SAP.${cutSuffix}`
-      : "El componente todavia no tiene un material formalizado en SAP.";
+      ? `Figura en la planilla interna de materiales, pero no en el último corte de SAP.${cutSuffix}`
+      : "El código todavía no está en SAP.";
 
   return {
     key: "formal_material",
-    label: "Material formal / maestro",
+    label: "Código formalizado en SAP",
     status,
     operationalOrder: MILESTONE_ORDER.formal_material,
     evidenceRefs: [...evidenceFor(item, "materials_master"), ...evidenceFor(item, "sap")].map((evidence) =>
@@ -253,16 +253,16 @@ function buildDocumentationApprovalMilestone(item: LifecycleRecord): LifecycleMi
           : "not_integrated";
 
   const reason = !item.requiresApprovedDocument
-    ? "El componente no requiere documento aprobado."
+    ? "El componente no lleva impresión, así que no tiene arte propio."
     : hasApprovedDocument
-      ? "Moondesk reporta documentacion aprobada para el componente."
+      ? "Moondesk reporta el arte aprobado."
       : hasMoondeskActivity
-        ? "Hay actividad documental en Moondesk, pero todavia no hay version aprobada."
-        : "No hay actividad documental de Moondesk asociada a este item.";
+        ? "Hay movimiento de diseño en Moondesk, pero todavía ninguna versión aprobada."
+        : "Moondesk no registra ningún trabajo de diseño para este componente.";
 
   return {
     key: "documentation_approval",
-    label: "Documentacion y aprobacion",
+    label: "Arte aprobado",
     status,
     operationalOrder: MILESTONE_ORDER.documentation_approval,
     evidenceRefs: moondeskEvidence.map((evidence) => evidenceRef(evidence.sourceType, evidence.sourceRecordKey)),
@@ -284,38 +284,38 @@ export function buildMilestones(item: LifecycleRecord): LifecycleMilestone[] {
   return [
     {
       key: "expectation",
-      label: "Expectativa PM",
+      label: "Lo pidió la planilla del PM",
       status: pmEvidence.length || item.originMode === "PM_EXPECTED" ? "ready" : "missing",
       operationalOrder: MILESTONE_ORDER.expectation,
       evidenceRefs: pmEvidence.map((evidence) => evidenceRef(evidence.sourceType, evidence.sourceRecordKey)),
       alertRefs: alertsFor(item, ["EXPECTED_COMPONENT_MISSING"]),
-      reason: pmEvidence.length ? "El componente existe como expectativa PM trazada." : "No hay evidencia PM persistida."
+      reason: pmEvidence.length ? "La planilla del PM pide este componente." : "La planilla del PM no lo menciona."
     },
     {
       key: "code_request",
-      label: "Pedido de codigo",
+      label: "Alta de código",
       status: item.requiresMaterialCode ? (hasRequest ? "partial" : "missing") : "not_required",
       operationalOrder: MILESTONE_ORDER.code_request,
       evidenceRefs: requestEvidence.map((evidence) => evidenceRef(evidence.sourceType, evidence.sourceRecordKey)),
       alertRefs: alertsFor(item, ["CODE_NOT_REQUESTED", "REQUEST_WITHOUT_FORMAL_MATERIAL"]),
       reason: hasRequest
-        ? "Existe evidencia operativa temprana de alta/pedido de codigo."
+        ? "Hay un pedido de código registrado."
         : item.requiresMaterialCode
-          ? "El componente requiere codigo y no hay material_request asociado."
-          : "El componente no requiere codigo."
+          ? "Necesita código de material y todavía no hay alta."
+          : "Este componente no lleva código propio."
     },
     {
       key: "pre_sap_structure",
-      label: "Estructura pre-SAP",
+      label: "Estructura en receta",
       status: hasBom ? (bomPendingConfirmation ? "partial" : "ready") : preBomMissing ? "missing" : "manual_review",
       operationalOrder: MILESTONE_ORDER.pre_sap_structure,
       evidenceRefs: bomEvidence.map((evidence) => evidenceRef(evidence.sourceType, evidence.sourceRecordKey)),
       alertRefs: alertsFor(item, ["PRE_BOM_MISSING", "PRE_BOM_PENDING_CONFIRMATION"]),
       reason: hasBom
         ? bomPendingConfirmation
-          ? "Hay evidencia BOM, pero el bloque conserva confirmaciones pendientes."
-          : "Hay evidencia BOM confiable para el componente."
-        : "No hay evidencia BOM persistida para este item."
+          ? "Está en la receta, pero el bloque tiene datos sin confirmar."
+          : "Está cargado en la estructura de la receta."
+        : "Todavía no figura en la receta."
     },
     buildFormalMaterialMilestone(item),
     buildDocumentationApprovalMilestone(item)
