@@ -443,6 +443,61 @@ Aparte hay 237 codigos del **sistema viejo** (`PL366`, `EM285`, `120-001-A`) que
 - Modelos `MoondeskApiDocument` y `MoondeskApiSync`, separados de `moondesk_tasks` a proposito: las dos fuentes conviven y se comparan.
 - `MoondeskFreshness` en el inicio: sin la fecha de sincronizacion, "el arte no esta aprobado" se lee igual que "lo aprobaron ayer y no sincronizamos".
 
+## Auditoria del usuario y correcciones de fondo (2026-09-27)
+
+Santiago audito la app y marco que era "extremadamente complejo de utilizar y leer". Todo lo que senalo trazo a causas reales; ninguna era cosmetica.
+
+### Causa raiz: el arrastre de contexto de Alta de Mat
+`detectContextRows` continuaba un bloque de pedidos mientras las filas compartieran **motivo + solicitante + fecha**. Esa firma identifica una **tanda**, no un producto: la misma persona pide el mismo dia estuches de productos distintos. Cada fila que nombraba al producto arrastraba las 3 siguientes, fueran de quien fueran.
+
+**El 48% de las altas vinculadas (45 de 93) hablaban de otro producto**, en 12 de 44 proyectos. De ahi salian todas las preguntas absurdas de Decisiones. El caso que lo destapo: `S237/70` figuraba bajo Dexogastec cuando en SAP es `EST.ALIPAS DUO 10/10 X 30 COMP(V)`.
+
+Arreglado: el arrastre corta cuando la fila nombra otro producto (`descriptionProductKey` lee la convencion `<TIPO>.<PRODUCTO> <medidas>`). `repair:altas` limpio lo cargado, incluidos 8 vinculos al maestro de SAP que el alta contaminada dejaba atras. Contaminacion 48% -> 0.
+
+La limpieza es conservadora a proposito: deja quietas las descripciones genericas de material (`FCO.PET VERDE`, `P.V.C ACLAR`) y usa el resolutor de tokens para no romper las excepciones validadas.
+
+### Version, presentacion y producto no son lo mismo
+Decisiones preguntaba "cual de estas altas vale" ante cualquier componente con dos o mas. Tres situaciones distintas, ninguna con respuesta correcta posible:
+
+| caso | ejemplo | que corresponde |
+|---|---|---|
+| versiones de una raiz | `SD90/70`, `/71`, `/72` | la mas nueva reemplaza, no se pregunta |
+| presentaciones | `SC22/70` 15mg x30 vs `SC23/70` 20mg x30 | componentes distintos, cada uno con su estuche |
+| otro producto | `EST.FLUORDENT JUNIOR` dentro de Kids | no va en ese proyecto |
+
+`material-code.ts` parte raiz y version (incluidos los codigos de 4 caracteres migrados) y clasifica en single/versions/presentations. `split:presentaciones` creo 22 componentes sobre 11 slots que mezclaban presentaciones. No separa codigos provisorios (`EXXX`) ni los de otro producto: para eso elige el token **mas especifico**, porque "fluordent" solo no distingue Kids de Junior.
+
+Decisiones paso de 18 preguntas imposibles a 2 reales.
+
+### "Blister: SI" declara formato, no un componente
+Dicho por el usuario: "principalmente dice que no es frasco, que no es pomo". Los componentes reales son **siempre dos**: el aluminio foil de tapa (esta en las dos variantes) y la lamina de formado, que es PVC de cualquier tipo o **aluminio moldeable en frio** (alu/alu no es un aluminio: son dos).
+
+El componente "Blister" no se borro porque **es** esa lamina: se renombro. Lo confirma PYLOBER, cuyo blister tenia colgada el alta `EXXX P.V.C ACLAR`.
+
+El material no se adivina: de los PM donde la fila "Tipo de Material" se puede leer, **una sola la tiene marcada**; el resto deja el texto de plantilla (`PVC /Aclar/ | Aluminio | Aluminio /`). Queda visible para resolver con el alta, la receta o a mano, porque muchas veces se asigna un PVC que ya existe en vez de pedir uno nuevo.
+
+**Blisters falsos**: `pm_matrix_structured_quantity` leia las columnas "Cant. Blister" de la **grilla comercial**, donde `Cant. Blister: 28.766` es un volumen anual. Daba blister en un jarabe de 250 ml y en gotas pediatricas. Ahora esa senal solo refuerza un blister ya declarado con la fila SI/NO marcada.
+
+### Un componente sin nombre propio no lleva arte
+Lo que se imprime lleva el nombre del producto: el arte **es** esa identificacion. Un frasco pedido como "FRASCO PET" se pide sin nada y la identificacion va en la etiqueta, que es otro componente con su codigo y su arte.
+
+Dos correcciones mas: **"etiq" estaba leido al reves** (en un envase, `(ETIQ.)` dice que *lleva* etiqueta, no que este impreso) y la ruta del PM pisaba la deduccion buena con la etiqueta generica al re-consolidar.
+
+`repair:arte`: 15 frascos y pomos dejaron de pedir arte, 17 aluminios foil pasaron a pedirlo.
+
+**Pendiente de confirmar**: el frasco de Magnesio (`ED28/70`, `FCO.BERNABO+ MAGNESIO X 150G ETIQ`) tiene version -que segun el procedimiento esta atada a la impresion- pero la descripcion dice ETIQ. Gano la etiqueta. Si en ese caso el frasco si se imprime, hay que hacer que la version mande.
+
+### Archivar
+Lo archivado sale de conteos, avisos y Decisiones, guarda motivo y autor, se reactiva, y la reimportacion no lo resucita. Se archiva un componente o un producto entero; al reactivar un producto vuelven solo los componentes archivados **con** el.
+
+### Usabilidad
+- **Rastro de navegacion** en todas las fichas: entrar ya no era un callejon sin salida (habia que apretar el logo).
+- **El inicio arranca por lo que pide una decision**, sin titulo de bienvenida ni resumen agregado. "Que esta esperando la cartera" se movio a Componentes: es una foto interesante pero no dispara ninguna accion.
+- **Las filas de producto se abren en el lugar**, mostrando cada componente y lo que le falta, sin cambiar de pantalla. El objetivo es recorrer rapido, no navegar.
+
+### Consulta respondida: las recetas no estan en el pedido a SAP
+Se pidio solo el maestro de materiales (MATNR, MAKTX, MTART, MATKL, LVORM, MSTAE, MEINS, ERSDA, LAEDA). Las estructuras salen unicamente de la planilla, que tiene **2 filas** cargadas. Para saber si una receta esta completa y conformada hace falta un segundo pedido: cabecera y posiciones de lista de materiales.
+
 ## Proximo paso
 A la espera de: (1) respuesta de Sistemas sobre conexion SAP, (2) API real de Moondesk. Mientras tanto (sin depender de terceros): edicion basica de estados de items desde la UI.
 

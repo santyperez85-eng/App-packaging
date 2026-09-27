@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 
 import { formatShortCalendarDate, labels, plural, relativeToToday } from "@/lib/labels";
 import { CLOSURE_REQUIREMENT_ORDER, CLOSURE_REQUIREMENT_SHORT_LABELS } from "@/server/rules/closure-checklist";
@@ -71,6 +71,78 @@ function CoverageCell({ coverage, label }: { coverage: RequirementCoverage; labe
 }
 
 /**
+ * Lo que se ve al abrir un producto, sin cambiar de pantalla.
+ *
+ * Muestra componente por componente que le falta, que es la pregunta que se
+ * hace al recorrer la lista. Para el detalle de cada requisito -que se
+ * encontro, en que fuente- esta el link a la ficha: aca alcanza con saber si
+ * hay que ir.
+ */
+function ProductPanel({ product }: { product: PortfolioProduct }) {
+  if (!product.totalComponents) {
+    return (
+      <p className="muted-text">
+        Todavía no se derivó ningún componente de la planilla de este producto.{" "}
+        <Link className="text-link" href={`/productos/${product.id}`}>
+          Abrir la ficha
+        </Link>
+      </p>
+    );
+  }
+
+  return (
+    <div className="panel">
+      {product.attention.length ? (
+        <div className="panel__attention">
+          {product.attention.map((entry, index) => (
+            <div key={index}>
+              <strong>{entry.componentName}:</strong> {entry.detail}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <ul className="panel__components">
+        {product.components.map((component) => (
+          <li key={component.id} className="panel__component">
+            <Link className="table-link" href={`/componentes/${component.id}`}>
+              {component.name}
+            </Link>
+            <span className="panel__code">{component.materialCode ?? "sin código"}</span>
+            <span className="panel__state">
+              {component.closed ? (
+                <span className="status-badge status-badge--success">Cerrado</span>
+              ) : (
+                <span className="chip-row">
+                  {component.requirements
+                    .filter((requirement) => requirement.status === "missing")
+                    .map((requirement) => (
+                      <span key={requirement.key} className="chip" title={requirement.detail}>
+                        {requirement.shortLabel}
+                      </span>
+                    ))}
+                  {component.requirements
+                    .filter((requirement) => requirement.status === "at_risk")
+                    .map((requirement) => (
+                      <span key={requirement.key} className="chip chip--risk" title={requirement.detail}>
+                        {requirement.shortLabel}: revisar
+                      </span>
+                    ))}
+                </span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <Link className="text-link" href={`/productos/${product.id}`}>
+        Abrir la ficha completa de {product.displayName}
+      </Link>
+    </div>
+  );
+}
+
+/**
  * El orden por defecto es por fecha de lanzamiento. Como hoy ninguna esta
  * cargada, se ofrecen los otros criterios en vez de elegir uno por el usuario:
  * cual conviene depende de si esta repasando la cartera o buscando algo puntual.
@@ -91,6 +163,9 @@ function pendingCount(product: PortfolioProduct) {
 export function ProductList({ products }: { products: PortfolioProduct[] }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("launch");
+  // Que producto esta desplegado. Uno por vez: el objetivo es recorrer rapido,
+  // no abrir todo y volver a tener que buscar.
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const visible = useMemo(() => {
     const needle = normalize(query.trim());
@@ -182,11 +257,28 @@ export function ProductList({ products }: { products: PortfolioProduct[] }) {
               </thead>
               <tbody>
                 {visible.map((product) => (
-                  <tr key={product.id} className={product.readyToClose ? "matrix__row--closed" : undefined}>
+                  <Fragment key={product.id}>
+                  <tr
+                    className={`matrix__row--clickable${product.readyToClose ? " matrix__row--closed" : ""}${
+                      expanded === product.id ? " matrix__row--expanded" : ""
+                    }`}
+                    onClick={() => setExpanded(expanded === product.id ? null : product.id)}
+                  >
                     <td>
-                      <Link className="table-link" href={`/productos/${product.id}`}>
+                      <button
+                        type="button"
+                        className="row-toggle"
+                        aria-expanded={expanded === product.id}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setExpanded(expanded === product.id ? null : product.id);
+                        }}
+                      >
+                        <span className="row-toggle__caret" aria-hidden>
+                          {expanded === product.id ? "▾" : "▸"}
+                        </span>
                         {product.displayName}
-                      </Link>
+                      </button>
                       <div className="table-subtitle">{product.presentation ?? "Sin presentación"}</div>
                       {product.attention.length ? (
                         <div className="table-subtitle table-subtitle--alert">
@@ -221,6 +313,15 @@ export function ProductList({ products }: { products: PortfolioProduct[] }) {
                       <div className="table-subtitle">{labels.projectStatus(product.status).text}</div>
                     </td>
                   </tr>
+
+                  {expanded === product.id ? (
+                    <tr className="matrix__detail">
+                      <td colSpan={3 + CLOSURE_REQUIREMENT_ORDER.length}>
+                        <ProductPanel product={product} />
+                      </td>
+                    </tr>
+                  ) : null}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

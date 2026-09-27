@@ -1,4 +1,5 @@
 import { Breadcrumb } from "@/components/layout/breadcrumb";
+import { PortfolioBlockers } from "@/components/portfolio/portfolio-overview";
 import Link from "next/link";
 
 import { SectionCard } from "@/components/ui/section-card";
@@ -14,6 +15,7 @@ export const dynamic = "force-dynamic";
  */
 export default async function ComponentsPage() {
   const portfolio = await portfolioService.getPortfolio();
+  const summary = await portfolioService.getSummary(portfolio);
   const rows = portfolio
     .flatMap((product) => product.components.map((component) => ({ product, component })))
     // Primero lo que esta mas cerca de cerrarse: son los reclamos mas cortos.
@@ -41,6 +43,8 @@ export default async function ComponentsPage() {
           Los que están más cerca de cerrarse aparecen primero.
         </p>
       </section>
+
+      <PortfolioBlockers summary={summary} />
 
       <SectionCard
         title="Todos los componentes"
