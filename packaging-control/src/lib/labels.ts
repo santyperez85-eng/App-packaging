@@ -224,6 +224,42 @@ export function relativeToToday(value?: Date | string | null) {
   return days > 0 ? `en ${amount}` : `hace ${amount}`;
 }
 
+/**
+ * Que le queda a un componente, dicho sin mezclar dos cosas distintas.
+ *
+ * Un requisito "a revisar" esta cumplido pero tiene una senal que amerita
+ * mirarlo (un arte aprobado que quedo atras del diseno, un codigo
+ * discontinuado). Contarlo junto con lo que falta daba frases como "le faltan 2
+ * de 6" cuando en realidad falta uno y el otro esta aprobado.
+ */
+export function pendingSummary(params: { missing: number; atRisk: number; applicable: number }) {
+  const { missing, atRisk, applicable } = params;
+
+  if (!missing && !atRisk) {
+    return "Cumple todos los requisitos";
+  }
+
+  const parts: string[] = [];
+
+  if (missing) {
+    parts.push(missing === 1 ? `Le falta 1 de ${applicable}` : `Le faltan ${missing} de ${applicable}`);
+  }
+
+  if (atRisk) {
+    parts.push(
+      missing
+        ? atRisk === 1
+          ? "y 1 a revisar"
+          : `y ${atRisk} a revisar`
+        : atRisk === 1
+          ? "Cumple todo, pero hay 1 requisito a revisar"
+          : `Cumple todo, pero hay ${atRisk} requisitos a revisar`
+    );
+  }
+
+  return parts.join(" ");
+}
+
 /** "3 componentes" / "1 componente", para no escribir "component(s)" en la UI. */
 export function plural(count: number, singular: string, pluralForm = `${singular}s`) {
   return `${count} ${count === 1 ? singular : pluralForm}`;

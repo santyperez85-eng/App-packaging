@@ -167,7 +167,37 @@ function recipeStructure(item: ChecklistRecord): ClosureRequirement {
   };
 }
 
-function approvedArt(item: ChecklistRecord): ClosureRequirement {
+/**
+ * Lo que el checklist necesita saber de un documento de MoonDesk. Viene de la
+ * API, que a diferencia del reporte Excel distingue si la version vigente es la
+ * aprobada o si el diseno siguio con borradores por encima.
+ */
+export type MoondeskArtAvailability = {
+  documentNumber: number;
+  documentType: string | null;
+  destination: string | null;
+  /** approved_current | approved_outdated | never_approved */
+  approvalState: string;
+  approvedVersionNumber: number | null;
+  latestVersionNumber: number | null;
+};
+
+/**
+ * Un plano, una especificacion o una ficha tecnica no son el arte del
+ * componente: son documentos tecnicos que el checklist evalua por separado (y
+ * contra la carpeta DOCUMENTOS APROBADOS, que es donde la gente los busca).
+ */
+function isArtDocument(documentType: string | null) {
+  const normalized = (documentType ?? "").trim().toLowerCase();
+
+  return !(
+    normalized.startsWith("plano") ||
+    normalized.startsWith("especificac") ||
+    normalized === "ft"
+  );
+}
+
+function approvedArt(item: ChecklistRecord, moondeskDocuments?: MoondeskArtAvailability[] | null): ClosureRequirement {
   if (!item.requiresApprovedDocument) {
     return {
       key: "approved_art",
@@ -178,6 +208,61 @@ function approvedArt(item: ChecklistRecord): ClosureRequirement {
     };
   }
 
+  const artDocuments = (moondeskDocuments ?? []).filter((document) => isArtDocument(document.documentType));
+
+  if (artDocuments.length) {
+    // Definicion del sector: si un codigo tiene varios documentos (tipicamente
+    // uno de Venta y otro Digital), **todos** tienen que estar aprobados.
+    const unapproved = artDocuments.filter((document) => document.approvalState === "never_approved");
+
+    if (unapproved.length) {
+      return {
+        key: "approved_art",
+        label: "Arte aprobado",
+        status: "missing",
+        detail:
+          artDocuments.length === 1
+            ? `El documento #${unapproved[0].documentNumber} no tiene ninguna versión aprobada.`
+            : `${unapproved.length} de ${artDocuments.length} documentos no tienen versión aprobada (${unapproved
+                .map((document) => `#${document.documentNumber}${document.destination ? ` ${document.destination}` : ""}`)
+                .join(", ")}).`,
+        source: "Moondesk"
+      };
+    }
+
+    // Definicion del sector: hay arte aprobado, pero si el diseno ya avanzo a
+    // borradores mas nuevos hay que revisarlo antes de dar el cierre por bueno.
+    const outdated = artDocuments.filter((document) => document.approvalState === "approved_outdated");
+
+    if (outdated.length) {
+      return {
+        key: "approved_art",
+        label: "Arte aprobado",
+        status: "at_risk",
+        detail: `Hay arte aprobado, pero el diseño siguió: ${outdated
+          .map(
+            (document) =>
+              `#${document.documentNumber} tiene aprobada la v${document.approvedVersionNumber} y va por la v${document.latestVersionNumber}`
+          )
+          .join("; ")}.`,
+        source: "Moondesk"
+      };
+    }
+
+    return {
+      key: "approved_art",
+      label: "Arte aprobado",
+      status: "met",
+      detail:
+        artDocuments.length === 1
+          ? `Aprobada la versión vigente (v${artDocuments[0].approvedVersionNumber}) del documento #${artDocuments[0].documentNumber}.`
+          : `Los ${artDocuments.length} documentos del código tienen aprobada su versión vigente.`,
+      source: "Moondesk"
+    };
+  }
+
+  // Sin datos de la API se usa lo que dejaron los reportes Excel. Es la fuente
+  // que veniamos usando y sigue siendo valida; solo distingue menos.
   const approved = item.moondeskTasks.some(
     (task) => task.approvedVersionAvailable || task.documents.some((document) => document.approved)
   );
@@ -188,7 +273,7 @@ function approvedArt(item: ChecklistRecord): ClosureRequirement {
       key: "approved_art",
       label: "Arte aprobado",
       status: "met",
-      detail: "Moondesk reporta el arte aprobado.",
+      detail: "Moondesk reporta el arte aprobado (dato del reporte, no de la API).",
       source: "Moondesk"
     };
   }
@@ -265,14 +350,16 @@ export function checklistMaterialCode(item: ChecklistRecord) {
 
 export function evaluateClosureChecklist(
   item: ChecklistRecord,
-  approvedDocs?: ApprovedDocumentAvailability | null
+  approvedDocs?: ApprovedDocumentAvailability | null,
+  /** Documentos que la API de MoonDesk tiene para el codigo de este componente. */
+  moondeskDocuments?: MoondeskArtAvailability[] | null
 ): ClosureChecklist {
   const materialCode = checklistMaterialCode(item);
   const requirements: ClosureRequirement[] = [
     codeRequested(item),
     codeFormalized(item),
     recipeStructure(item),
-    approvedArt(item),
+    approvedArt(item, moondeskDocuments),
     documentAvailability("specification", "Especificación disponible", {
       materialCode,
       docs: approvedDocs,

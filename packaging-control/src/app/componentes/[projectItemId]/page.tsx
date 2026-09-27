@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { ComponentChecklist } from "@/components/portfolio/component-checklist";
 import { ProjectItemLifecycleView } from "@/components/project-items/project-item-lifecycle-view";
 import { SectionCard } from "@/components/ui/section-card";
-import { labels } from "@/lib/labels";
+import { labels, pendingSummary } from "@/lib/labels";
 import { portfolioService } from "@/server/services/portfolio-service";
 import { projectItemLifecycleService } from "@/server/services/project-item-lifecycle-service";
 
@@ -26,7 +26,6 @@ export default async function ComponentDetailPage({
   }
 
   const { component, product } = detail;
-  const pending = component.applicable - component.met;
 
   return (
     <div className="stack-lg">
@@ -41,9 +40,13 @@ export default async function ComponentDetailPage({
         <p className="page-intro__summary">
           {component.closed
             ? "Cumple todos los requisitos: se puede dar por cerrado."
-            : pending === 1
+            : component.missing.length === 1 && !component.atRisk.length
               ? "Le falta un solo requisito para poder cerrarse."
-              : `Le faltan ${pending} de ${component.applicable} requisitos.`}
+              : pendingSummary({
+                  missing: component.missing.length,
+                  atRisk: component.atRisk.length,
+                  applicable: component.applicable
+                }) + "."}
         </p>
 
         {/* El estado heredado ("espera documentos") no se muestra: el checklist

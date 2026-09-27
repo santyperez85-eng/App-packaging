@@ -10,6 +10,7 @@ import {
   type ClosureRequirementStatus
 } from "@/server/rules/closure-checklist";
 import { approvedDocumentsService } from "@/server/services/approved-documents-service";
+import { moondeskApiService } from "@/server/services/moondesk-api-service";
 
 /**
  * Cartera vista por producto.
@@ -98,12 +99,15 @@ export type PortfolioProduct = {
 
 function toComponent(
   item: Awaited<ReturnType<typeof loadItems>>[number],
-  approvedDocs: Awaited<ReturnType<typeof approvedDocumentsService.getByMaterialCodes>>
+  approvedDocs: Awaited<ReturnType<typeof approvedDocumentsService.getByMaterialCodes>>,
+  moondeskDocs: Awaited<ReturnType<typeof moondeskApiService.getByMaterialCodes>>
 ): PortfolioComponent {
   const materialCode = checklistMaterialCode(item);
+  const key = materialCode?.trim().toUpperCase();
   const checklist = evaluateClosureChecklist(
     item,
-    materialCode ? (approvedDocs.get(materialCode.toUpperCase()) ?? null) : null
+    key ? (approvedDocs.get(key) ?? null) : null,
+    key ? (moondeskDocs.get(key) ?? null) : null
   );
 
   const byKey = new Map(checklist.requirements.map((requirement) => [requirement.key, requirement]));
@@ -173,9 +177,13 @@ export const portfolioService = {
     }
 
     const items = await loadItems(options?.projectId);
-    const approvedDocs = await approvedDocumentsService.getByMaterialCodes(
-      items.map((item) => checklistMaterialCode(item)).filter((code): code is string => Boolean(code))
-    );
+    const materialCodes = items
+      .map((item) => checklistMaterialCode(item))
+      .filter((code): code is string => Boolean(code));
+    const [approvedDocs, moondeskDocs] = await Promise.all([
+      approvedDocumentsService.getByMaterialCodes(materialCodes),
+      moondeskApiService.getByMaterialCodes(materialCodes)
+    ]);
 
     // Un proyecto sin componentes no aparece si se agrupa desde los items, y no
     // mostrarlo seria esconder justamente el caso mas crudo: un PM del que
@@ -189,7 +197,7 @@ export const portfolioService = {
 
     for (const item of items) {
       const list = byProject.get(item.projectId) ?? [];
-      list.push(toComponent(item, approvedDocs));
+      list.push(toComponent(item, approvedDocs, moondeskDocs));
       byProject.set(item.projectId, list);
     }
 
@@ -271,10 +279,14 @@ export const portfolioService = {
     }
 
     const materialCode = checklistMaterialCode(item);
-    const approvedDocs = await approvedDocumentsService.getByMaterialCodes(materialCode ? [materialCode] : []);
+    const codes = materialCode ? [materialCode] : [];
+    const [approvedDocs, moondeskDocs] = await Promise.all([
+      approvedDocumentsService.getByMaterialCodes(codes),
+      moondeskApiService.getByMaterialCodes(codes)
+    ]);
 
     return {
-      component: toComponent(item, approvedDocs),
+      component: toComponent(item, approvedDocs, moondeskDocs),
       product: {
         id: item.project.id,
         displayName: item.project.product?.name ?? item.project.name,

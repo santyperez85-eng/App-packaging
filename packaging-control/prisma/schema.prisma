@@ -227,17 +227,17 @@ enum VersioningRecommendation {
 }
 
 model User {
-  id                      String           @id @default(cuid())
+  id                      String            @id @default(cuid())
   fullName                String
-  email                   String           @unique
-  role                    UserRole         @default(PM)
-  createdAt               DateTime         @default(now())
-  updatedAt               DateTime         @updatedAt
-  ownedProjects           Project[]        @relation("ProjectOwner")
+  email                   String            @unique
+  role                    UserRole          @default(PM)
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+  ownedProjects           Project[]         @relation("ProjectOwner")
   createdMaterialRequests MaterialRequest[] @relation("MaterialRequestRequester")
-  assignedChecks          TechnicalCheck[] @relation("TechnicalCheckUser")
-  approvals               Approval[]       @relation("ApprovalUser")
-  issuesReported          Issue[]          @relation("IssueReporter")
+  assignedChecks          TechnicalCheck[]  @relation("TechnicalCheckUser")
+  approvals               Approval[]        @relation("ApprovalUser")
+  issuesReported          Issue[]           @relation("IssueReporter")
 
   @@map("users")
 }
@@ -257,10 +257,10 @@ model Product {
 }
 
 model Project {
-  id               String            @id @default(cuid())
+  id               String             @id @default(cuid())
   productId        String?
   ownerId          String?
-  code             String            @unique
+  code             String             @unique
   name             String
   caseType         String?
   changeDriver     String?
@@ -270,17 +270,17 @@ model Project {
   scopeDefined     ScopeDefinedStatus @default(UNKNOWN)
   description      String?
   businessUnit     BusinessUnit
-  status           ProjectStatus     @default(PLANNING)
+  status           ProjectStatus      @default(PLANNING)
   macroStatus      String?
-  healthScore      Int               @default(0)
-  sourcePmKey      String?           @unique
+  healthScore      Int                @default(0)
+  sourcePmKey      String?            @unique
   startDate        DateTime?
   targetLaunchDate DateTime?
   closedAt         DateTime?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  product          Product?          @relation(fields: [productId], references: [id])
-  owner            User?             @relation("ProjectOwner", fields: [ownerId], references: [id])
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  product          Product?           @relation(fields: [productId], references: [id])
+  owner            User?              @relation("ProjectOwner", fields: [ownerId], references: [id])
   projectItems     ProjectItem[]
   bomItems         BomItem[]
   materialRequests MaterialRequest[]
@@ -293,7 +293,7 @@ model Project {
 }
 
 model ProjectItem {
-  id                       String                   @id @default(cuid())
+  id                       String                          @id @default(cuid())
   projectId                String
   bomItemId                String?
   materialRequestId        String?
@@ -301,32 +301,32 @@ model ProjectItem {
   itemKey                  String
   name                     String
   description              String?
-  componentSlot            ComponentSlot            @default(OTRO)
-  applicabilityStatus      ApplicabilityStatus      @default(UNKNOWN)
-  originMode               ProjectItemOriginMode    @default(MANUAL)
-  provisional              Boolean                  @default(false)
-  expectedStatus           ProjectItemExpectedStatus @default(EXPECTED)
+  componentSlot            ComponentSlot                   @default(OTRO)
+  applicabilityStatus      ApplicabilityStatus             @default(UNKNOWN)
+  originMode               ProjectItemOriginMode           @default(MANUAL)
+  provisional              Boolean                         @default(false)
+  expectedStatus           ProjectItemExpectedStatus       @default(EXPECTED)
   identificationStatus     ProjectItemIdentificationStatus @default(NOT_IDENTIFIED)
-  matchingStatus           MatchingStatus           @default(MANUAL_REVIEW)
+  matchingStatus           MatchingStatus                  @default(MANUAL_REVIEW)
   provisionalCode          String?
-  itemType                 ItemType                 @default(OTHER)
-  criticality              ItemCriticality          @default(HIGH)
-  status                   ProjectItemStatus        @default(PENDING)
-  readinessScore           Int                      @default(0)
-  isPackaging              Boolean                  @default(true)
-  requiresMaterialCode     Boolean                  @default(true)
-  requiresApprovedDocument Boolean                  @default(true)
-  requiresTechnicalDocs    Boolean                  @default(true)
+  itemType                 ItemType                        @default(OTHER)
+  criticality              ItemCriticality                 @default(HIGH)
+  status                   ProjectItemStatus               @default(PENDING)
+  readinessScore           Int                             @default(0)
+  isPackaging              Boolean                         @default(true)
+  requiresMaterialCode     Boolean                         @default(true)
+  requiresApprovedDocument Boolean                         @default(true)
+  requiresTechnicalDocs    Boolean                         @default(true)
   expectedMaterialCode     String?
-  versioningRecommendation VersioningRecommendation @default(NO_SIGNAL)
+  versioningRecommendation VersioningRecommendation        @default(NO_SIGNAL)
   materialRequestLockedAt  DateTime?
   manualLinkNote           String?
-  createdAt                DateTime                 @default(now())
-  updatedAt                DateTime                 @updatedAt
-  project                  Project                  @relation(fields: [projectId], references: [id])
-  bomItem                  BomItem?                 @relation(fields: [bomItemId], references: [id])
-  materialRequest          MaterialRequest?         @relation(fields: [materialRequestId], references: [id])
-  materialMaster           MaterialsMaster?         @relation(fields: [materialMasterId], references: [id])
+  createdAt                DateTime                        @default(now())
+  updatedAt                DateTime                        @updatedAt
+  project                  Project                         @relation(fields: [projectId], references: [id])
+  bomItem                  BomItem?                        @relation(fields: [bomItemId], references: [id])
+  materialRequest          MaterialRequest?                @relation(fields: [materialRequestId], references: [id])
+  materialMaster           MaterialsMaster?                @relation(fields: [materialMasterId], references: [id])
   moondeskTasks            MoondeskTask[]
   evidences                ProjectItemEvidence[]
   technicalChecks          TechnicalCheck[]
@@ -343,23 +343,23 @@ model ProjectItem {
 }
 
 model ProjectItemEvidence {
-  id              String          @id @default(cuid())
-  projectItemId   String
-  sourceType      String
-  sourceRecordKey String
-  matchRule       String?
-  matchConfidence MatchConfidence @default(MEDIUM)
-  matchStatus     MatchingStatus  @default(MANUAL_REVIEW)
+  id                String          @id @default(cuid())
+  projectItemId     String
+  sourceType        String
+  sourceRecordKey   String
+  matchRule         String?
+  matchConfidence   MatchConfidence @default(MEDIUM)
+  matchStatus       MatchingStatus  @default(MANUAL_REVIEW)
   manualMatchStatus MatchingStatus?
   manualNote        String?
   manualDecidedAt   DateTime?
-  isPrimary       Boolean         @default(false)
-  lastSeenAt      DateTime?
-  rawLabel        String?
-  rawData         Json?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  projectItem     ProjectItem     @relation(fields: [projectItemId], references: [id])
+  isPrimary         Boolean         @default(false)
+  lastSeenAt        DateTime?
+  rawLabel          String?
+  rawData           Json?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  projectItem       ProjectItem     @relation(fields: [projectItemId], references: [id])
 
   @@unique([projectItemId, sourceType, sourceRecordKey])
   @@index([projectItemId, matchStatus])
@@ -390,71 +390,71 @@ model BomItem {
 }
 
 model MaterialRequest {
-  id                 String                @id @default(cuid())
-  projectId          String
-  requestedById      String?
-  requestCode        String?
-  requestDate        DateTime?
-  requestedByName    String?
-  materialType       MaterialType          @default(OTHER)
+  id                   String                @id @default(cuid())
+  projectId            String
+  requestedById        String?
+  requestCode          String?
+  requestDate          DateTime?
+  requestedByName      String?
+  materialType         MaterialType          @default(OTHER)
   requestedDescription String
-  requestStatus      MaterialRequestStatus @default(REQUESTED)
-  linkedMaterialCode String?
-  linkedMaterialId   String?
-  sourceExternalId   String?               @unique
-  notes              String?
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
-  project            Project               @relation(fields: [projectId], references: [id])
-  requester          User?                 @relation("MaterialRequestRequester", fields: [requestedById], references: [id])
-  linkedMaterial     MaterialsMaster?      @relation(fields: [linkedMaterialId], references: [id])
-  projectItems       ProjectItem[]
+  requestStatus        MaterialRequestStatus @default(REQUESTED)
+  linkedMaterialCode   String?
+  linkedMaterialId     String?
+  sourceExternalId     String?               @unique
+  notes                String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  project              Project               @relation(fields: [projectId], references: [id])
+  requester            User?                 @relation("MaterialRequestRequester", fields: [requestedById], references: [id])
+  linkedMaterial       MaterialsMaster?      @relation(fields: [linkedMaterialId], references: [id])
+  projectItems         ProjectItem[]
 
   @@index([projectId, requestStatus])
   @@map("material_requests")
 }
 
 model MaterialsMaster {
-  id                  String                  @id @default(cuid())
-  materialCode        String                  @unique
-  rootCode            String?
-  versionLabel        String?
-  materialType        MaterialType            @default(OTHER)
-  description         String
-  format              String?
-  measures            String?
-  supplier            String?
-  drawingCode         String?
-  specificationCode   String?
-  technicalSheetCode  String?
-  observations        String?
-  changeHistoryText   String?
-  activeFlag          Boolean                 @default(true)
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
-  projectItems        ProjectItem[]
-  linkedRequests      MaterialRequest[]
-  sapMaterial         SapMaterial?
+  id                   String                  @id @default(cuid())
+  materialCode         String                  @unique
+  rootCode             String?
+  versionLabel         String?
+  materialType         MaterialType            @default(OTHER)
+  description          String
+  format               String?
+  measures             String?
+  supplier             String?
+  drawingCode          String?
+  specificationCode    String?
+  technicalSheetCode   String?
+  observations         String?
+  changeHistoryText    String?
+  activeFlag           Boolean                 @default(true)
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  projectItems         ProjectItem[]
+  linkedRequests       MaterialRequest[]
+  sapMaterial          SapMaterial?
   changeHistoryEntries MaterialChangeHistory[]
-  pos652Evaluations   Pos652RuleEvaluation[]
+  pos652Evaluations    Pos652RuleEvaluation[]
 
   @@index([materialType])
   @@map("materials_master")
 }
 
 model MoondeskTask {
-  id                       String            @id @default(cuid())
-  externalTaskId           String?           @unique
+  id                       String             @id @default(cuid())
+  externalTaskId           String?            @unique
   projectItemId            String
   taskType                 MoondeskTaskType
   taskStatus               MoondeskTaskStatus @default(TODO)
   title                    String
   dueDate                  DateTime?
   assignedDesigner         String?
-  versionsCount            Int               @default(0)
+  versionsCount            Int                @default(0)
   latestVersionLabel       String?
   reviewDecision           ReviewDecision?
-  approvedVersionAvailable Boolean           @default(false)
+  approvedVersionAvailable Boolean            @default(false)
   comments                 Json?
   sourceUpdatedAt          DateTime?
   sourceTaskNumber         String?
@@ -463,9 +463,9 @@ model MoondeskTask {
   designDays               Float?
   reviewDays               Float?
   closeDays                Float?
-  createdAt                DateTime          @default(now())
-  updatedAt                DateTime          @updatedAt
-  projectItem              ProjectItem       @relation(fields: [projectItemId], references: [id])
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+  projectItem              ProjectItem        @relation(fields: [projectItemId], references: [id])
   versions                 MoondeskVersion[]
   reviews                  MoondeskReview[]
   documents                MoondeskDocument[]
@@ -476,77 +476,85 @@ model MoondeskTask {
 }
 
 model TechnicalCheck {
-  id          String      @id @default(cuid())
+  id            String      @id @default(cuid())
   projectItemId String
-  checkedById String?
-  checkType   CheckType
-  status      CheckStatus @default(PENDING)
-  isBlocking  Boolean     @default(true)
-  notes       String?
-  checkedAt   DateTime?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  projectItem ProjectItem @relation(fields: [projectItemId], references: [id])
-  checkedBy   User?       @relation("TechnicalCheckUser", fields: [checkedById], references: [id])
+  checkedById   String?
+  checkType     CheckType
+  status        CheckStatus @default(PENDING)
+  isBlocking    Boolean     @default(true)
+  notes         String?
+  checkedAt     DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  projectItem   ProjectItem @relation(fields: [projectItemId], references: [id])
+  checkedBy     User?       @relation("TechnicalCheckUser", fields: [checkedById], references: [id])
 
-  @@index([projectItemId, status])
   @@unique([projectItemId, checkType])
+  @@index([projectItemId, status])
   @@map("technical_checks")
 }
 
 model Alert {
-  id           String        @id @default(cuid())
-  projectId    String?
-  projectItemId String?
-  type         String
-  title        String
-  message      String
-  severity     AlertSeverity @default(WARNING)
-  status       AlertStatus   @default(OPEN)
-  ruleCode     String?
-  dueDate      DateTime?
-  metadata     Json?
-  resolvedAt   DateTime?
-  manuallyResolved Boolean @default(false)
+  id               String        @id @default(cuid())
+  projectId        String?
+  projectItemId    String?
+  type             String
+  title            String
+  message          String
+  severity         AlertSeverity @default(WARNING)
+  status           AlertStatus   @default(OPEN)
+  ruleCode         String?
+  dueDate          DateTime?
+  metadata         Json?
+  resolvedAt       DateTime?
+  manuallyResolved Boolean       @default(false)
   resolutionNote   String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  project      Project?      @relation(fields: [projectId], references: [id])
-  projectItem  ProjectItem?  @relation(fields: [projectItemId], references: [id])
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  project          Project?      @relation(fields: [projectId], references: [id])
+  projectItem      ProjectItem?  @relation(fields: [projectItemId], references: [id])
 
+  @@unique([projectItemId, ruleCode])
   @@index([projectId])
   @@index([projectItemId])
   @@index([status, severity])
-  @@unique([projectItemId, ruleCode])
   @@map("alerts")
 }
 
 model SapMaterial {
-  id             String         @id @default(cuid())
-  materialCode   String         @unique
-  materialMasterId String?      @unique
-  description    String?
-  activeFlag     Boolean        @default(true)
-  supplier       String?
-  purchaseStatus String?
-  sourceUpdatedAt DateTime?
+  id               String             @id @default(cuid())
+  materialCode     String             @unique
+  materialMasterId String?            @unique
+  description      String?
+  activeFlag       Boolean            @default(true)
+  supplier         String?
+  purchaseStatus   String?
+  sourceUpdatedAt  DateTime?
   // Campos del corte del maestro (extraccion a demanda de Sistemas).
-  materialGroup  String?
-  /** Clase de material: ZENV = envase (primario), ZSEN = sobre envase (secundario). */
-  materialClass  String?
-  /** Marca de borrado: codigo pedido por error, distinto de discontinuado. */
-  deletionFlag   Boolean        @default(false)
-  /** Grupo 051 / status Z3: material que estuvo en uso y se dio de baja. */
-  discontinued   Boolean        @default(false)
-  baseUom        String?
-  sourceCreatedAt DateTime?
-  /** Corte del que provienen estos datos. */
-  snapshotId     String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  materialMaster MaterialsMaster? @relation(fields: [materialMasterId], references: [id])
-  snapshot       SapMasterSnapshot? @relation(fields: [snapshotId], references: [id])
-  rawImports     ImportSapRaw[]
+  materialGroup    String?
+  /**
+   * Clase de material: ZENV = envase (primario), ZSEN = sobre envase (secundario).
+   */
+  materialClass    String?
+  /**
+   * Marca de borrado: codigo pedido por error, distinto de discontinuado.
+   */
+  deletionFlag     Boolean            @default(false)
+  /**
+   * Grupo 051 / status Z3: material que estuvo en uso y se dio de baja.
+   */
+  discontinued     Boolean            @default(false)
+  baseUom          String?
+  sourceCreatedAt  DateTime?
+  /**
+   * Corte del que provienen estos datos.
+   */
+  snapshotId       String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  materialMaster   MaterialsMaster?   @relation(fields: [materialMasterId], references: [id])
+  snapshot         SapMasterSnapshot? @relation(fields: [snapshotId], references: [id])
+  rawImports       ImportSapRaw[]
 
   @@index([materialGroup])
   @@index([snapshotId])
@@ -560,33 +568,37 @@ model SapMaterial {
  * cuando son los datos de SAP.
  */
 model SapMasterSnapshot {
-  id             String        @id @default(cuid())
-  /** Fecha de los datos, derivada del maximo de ultima modificacion. */
-  dataDate       DateTime
-  /** Fecha en que se recibio el archivo (mtime), si esta disponible. */
-  receivedAt     DateTime?
-  sourceFileName String?
-  materialCount  Int           @default(0)
-  currentCount   Int           @default(0)
-  discontinuedCount Int        @default(0)
-  erroredCount   Int           @default(0)
-  importedAt     DateTime      @default(now())
-  materials      SapMaterial[]
+  id                String        @id @default(cuid())
+  /**
+   * Fecha de los datos, derivada del maximo de ultima modificacion.
+   */
+  dataDate          DateTime
+  /**
+   * Fecha en que se recibio el archivo (mtime), si esta disponible.
+   */
+  receivedAt        DateTime?
+  sourceFileName    String?
+  materialCount     Int           @default(0)
+  currentCount      Int           @default(0)
+  discontinuedCount Int           @default(0)
+  erroredCount      Int           @default(0)
+  importedAt        DateTime      @default(now())
+  materials         SapMaterial[]
 
   @@index([dataDate])
   @@map("sap_master_snapshots")
 }
 
 model MoondeskVersion {
-  id               String       @id @default(cuid())
-  moondeskTaskId   String
-  versionLabel     String
-  isLatest         Boolean      @default(false)
-  approved         Boolean      @default(false)
-  createdAtSource  DateTime?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  moondeskTask     MoondeskTask @relation(fields: [moondeskTaskId], references: [id])
+  id              String       @id @default(cuid())
+  moondeskTaskId  String
+  versionLabel    String
+  isLatest        Boolean      @default(false)
+  approved        Boolean      @default(false)
+  createdAtSource DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  moondeskTask    MoondeskTask @relation(fields: [moondeskTaskId], references: [id])
 
   @@index([moondeskTaskId])
   @@map("moondesk_versions")
@@ -627,7 +639,9 @@ model MoondeskDocument {
    * generan al descargarlos de Moondesk.
    */
   drawingCode        String?
-  /** Tipo tal como lo reporta Moondesk (Plano, Especificacion, Estuche, ...). */
+  /**
+   * Tipo tal como lo reporta Moondesk (Plano, Especificacion, Estuche, ...).
+   */
   sourceDocumentType String?
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
@@ -639,36 +653,36 @@ model MoondeskDocument {
 }
 
 model Approval {
-  id           String         @id @default(cuid())
+  id            String         @id @default(cuid())
   projectItemId String
-  approverId   String?
-  approverName String?
-  approvalType String
-  status       ApprovalStatus @default(PENDING)
-  approvedAt   DateTime?
-  notes        String?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  projectItem  ProjectItem    @relation(fields: [projectItemId], references: [id])
-  approver     User?          @relation("ApprovalUser", fields: [approverId], references: [id])
+  approverId    String?
+  approverName  String?
+  approvalType  String
+  status        ApprovalStatus @default(PENDING)
+  approvedAt    DateTime?
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  projectItem   ProjectItem    @relation(fields: [projectItemId], references: [id])
+  approver      User?          @relation("ApprovalUser", fields: [approverId], references: [id])
 
   @@index([projectItemId, status])
   @@map("approvals")
 }
 
 model Issue {
-  id           String        @id @default(cuid())
+  id            String        @id @default(cuid())
   projectItemId String
-  reporterId   String?
-  title        String
-  description  String?
-  severity     IssueSeverity @default(MEDIUM)
-  status       IssueStatus   @default(OPEN)
-  blockedUntil DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  projectItem  ProjectItem   @relation(fields: [projectItemId], references: [id])
-  reporter     User?         @relation("IssueReporter", fields: [reporterId], references: [id])
+  reporterId    String?
+  title         String
+  description   String?
+  severity      IssueSeverity @default(MEDIUM)
+  status        IssueStatus   @default(OPEN)
+  blockedUntil  DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  projectItem   ProjectItem   @relation(fields: [projectItemId], references: [id])
+  reporter      User?         @relation("IssueReporter", fields: [reporterId], references: [id])
 
   @@index([projectItemId, status])
   @@map("issues")
@@ -732,8 +746,8 @@ model ImportPmRow {
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 
-  @@index([batchId, processingStatus])
   @@unique([batchId, sheetName, rowNumber])
+  @@index([batchId, processingStatus])
   @@map("import_pm_rows")
 }
 
@@ -759,8 +773,8 @@ model ImportMaterialMasterRow {
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
-  @@index([batchId, processingStatus])
   @@unique([batchId, sheetName, rowNumber])
+  @@index([batchId, processingStatus])
   @@map("import_material_master_rows")
 }
 
@@ -785,8 +799,8 @@ model ImportBomRow {
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
 
-  @@index([batchId, processingStatus])
   @@unique([batchId, sheetName, rowNumber])
+  @@index([batchId, processingStatus])
   @@map("import_bom_rows")
 }
 
@@ -811,8 +825,8 @@ model ImportMaterialRequestRow {
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
 
-  @@index([batchId, processingStatus])
   @@unique([batchId, sheetName, rowNumber])
+  @@index([batchId, processingStatus])
   @@map("import_material_request_rows")
 }
 
@@ -827,8 +841,8 @@ model ImportMoondeskRaw {
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 
-  @@index([batchId, processingStatus])
   @@unique([batchId, externalTaskId])
+  @@index([batchId, processingStatus])
   @@map("import_moondesk_raw")
 }
 
@@ -845,8 +859,8 @@ model ImportSapRaw {
   updatedAt        DateTime            @updatedAt
   sapMaterial      SapMaterial?        @relation(fields: [sapMaterialId], references: [id])
 
-  @@index([batchId, processingStatus])
   @@unique([batchId, materialCode])
+  @@index([batchId, processingStatus])
   @@map("import_sap_raw")
 }
 
@@ -863,12 +877,103 @@ model ApprovedDocumentSet {
   hasSpecification   Boolean  @default(false)
   hasDrawing         Boolean  @default(false)
   hasArtwork         Boolean  @default(false)
-  /** Codigos MOONxxxxx hallados en los nombres de archivo. */
+  /**
+   * Codigos MOONxxxxx hallados en los nombres de archivo.
+   */
   moondeskCodes      String[]
   fileCount          Int      @default(0)
-  /** Archivos cuyo tipo no se pudo determinar ni por nombre ni por Moondesk. */
+  /**
+   * Archivos cuyo tipo no se pudo determinar ni por nombre ni por Moondesk.
+   */
   unclassifiedFiles  Int      @default(0)
   scannedAt          DateTime @default(now())
 
   @@map("approved_document_sets")
+}
+
+/**
+ * Documento tal como lo devuelve la API de MoonDesk.
+ * Vive aparte de `moondesk_tasks` (que viene de los reportes Excel) a proposito:
+ * la API esta organizada por documento y no por tarea, trae muchisimo mas
+ * volumen (2.937 documentos contra 185 tareas indexadas) y permite distinguir
+ * si la version vigente es la aprobada. Mantener las dos fuentes separadas deja
+ * compararlas antes de confiarle el tablero a la nueva.
+ */
+model MoondeskApiDocument {
+  id             String  @id @default(cuid())
+  documentNumber Int     @unique
+  /**
+   * Identificador interno de MoonDesk (guid).
+   */
+  documentId     String?
+  /**
+   * Estuche, Prospecto, Plano, Especificacion, FT, Etiqueta...
+   */
+  documentType   String?
+
+  // Clasificadores del documento.
+  materialCode       String?
+  productName        String?
+  presentation       String?
+  concentration      String?
+  format             String?
+  /**
+   * Venta, Digital, Muestra, OTC. Define si el documento cuenta para el cierre.
+   */
+  destination        String?
+  drawingCode        String?
+  specificationCode  String?
+  technicalSheetCode String?
+  description        String?
+  materialTypeLabel  String?
+
+  latestVersionNumber      Int?
+  latestMinorVersionNumber Int?
+  approvedVersionNumber    Int?
+  /**
+   * approved_current | approved_outdated | never_approved
+   */
+  approvalState            String
+  approvedAt               DateTime?
+  approvedBy               String?
+  lastVersionAt            DateTime?
+  lastVersionStatus        String?
+  hasPendingTasks          Boolean   @default(false)
+  pendingTaskCount         Int       @default(0)
+
+  /**
+   * Clasificadores completos, por si aparece uno que todavia no mapeamos.
+   */
+  classValues Json?
+  syncedAt    DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([materialCode])
+  @@index([drawingCode])
+  @@index([specificationCode])
+  @@map("moondesk_api_documents")
+}
+
+/**
+ * Cada corrida de sincronizacion con la API. Se expone en el tablero igual que
+ * la fecha de corte de SAP: sin saber cuando se sincronizo, "no esta aprobado"
+ * se lee igual que "el dato quedo viejo".
+ */
+model MoondeskApiSync {
+  id               String    @id @default(cuid())
+  startedAt        DateTime  @default(now())
+  finishedAt       DateTime?
+  documentCount    Int       @default(0)
+  approvedCurrent  Int       @default(0)
+  approvedOutdated Int       @default(0)
+  neverApproved    Int       @default(0)
+  /**
+   * Codigos MOON con formato invalido hallados en esta corrida.
+   */
+  malformedCodes   String[]
+  incremental      Boolean   @default(false)
+  error            String?
+
+  @@map("moondesk_api_syncs")
 }

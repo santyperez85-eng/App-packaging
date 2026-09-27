@@ -50,8 +50,8 @@ export function PortfolioOverview({
               <h2>Necesita una decisión tuya</h2>
               <p>
                 Acá el requisito figura cumplido pero hay una señal que no se puede resolver sola: un código
-                discontinuado que hay que reemplazar, uno que se pidió por error, o una estructura que espera tu
-                confirmación. No dependen de que responda otro sector.
+                discontinuado que hay que reemplazar, uno que se pidió por error, un arte aprobado que quedó atrás
+                del diseño, o una estructura que espera tu confirmación. No dependen de que responda otro sector.
               </p>
             </div>
           </header>

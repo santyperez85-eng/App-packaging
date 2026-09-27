@@ -381,6 +381,68 @@ Tambien se reescribieron todos los titulos y mensajes de aviso al vocabulario de
 ### Verificado
 `npx tsc --noEmit` limpio; 8/8 escenarios de `validate:functional`; las cinco pantallas renderizadas contra la base real sin errores de consola; alta y edicion de fecha de lanzamiento probadas de punta a punta.
 
+## Moondesk por API (2026-09-27)
+
+Moondesk confirmo que la API ya esta hecha. Se conecto, valido y dejo en produccion.
+
+### Conexion
+- Servidor: `https://api.moondesk.design`. Autenticacion por encabezado `x-api-key`.
+- **La documentacion esta publicada**: `https://api.moondesk.design/swagger/v1/swagger.json`. No hizo falta pedirsela a nadie; se encontro sondeando el host.
+- La clave se genera en Moondesk > Configuracion > **MoonAPI**. Se guarda en `packaging-control/.env.local` (fuera de git). `.env.example` documenta la variable.
+- **La API es de solo lectura**: no expone ninguna operacion de escritura, asi que no hay riesgo de que la app modifique algo en Moondesk.
+- La otra seccion de esa pantalla, "Enviar documentos a una API", va al reves (Moondesk empuja hacia una URL nuestra) y necesita la app publicada. Queda pendiente como mejora: daria avisos en el momento de la aprobacion en vez de tener que sincronizar.
+
+### Siete endpoints, modelo por documento
+`GET /api/v1/Configuration`, `GET /Document`, `GET /Document/DocumentVersions`, `GET /Document/DownloadDocument`, `GET /Document/DownloadFile`, `POST /Document/Search`, `GET /healthz`.
+
+La API esta organizada **por documento, no por tarea** — distinto del reporte Excel. Cada documento lleva sus clasificadores: Cod. Insumo, Producto, Presentacion, Concentracion, Formato, Destino, **Cod. Plano**, **Cod. Especificacion**, **FT N°**, Descripcion, Tipo de material.
+
+Cobertura: **2.937 documentos, 1.776 codigos de insumo, 23 tipos de documento**. El reporte Excel indexaba 185 codigos MOON: el limite que se habia registrado al integrar DOCUMENTOS APROBADOS queda superado.
+
+### Rendimiento: ~9 segundos por pagina
+La busqueda pagina de a 20 y cada pedido tarda ~9 s: la sincronizacion completa son 147 paginas, **mas de veinte minutos**. Por eso:
+- `streamDocuments` es un generador y el servicio **guarda pagina por pagina**. La primera version juntaba todo en memoria y escribia al final; una falla en la pagina 140 habria tirado veinte minutos.
+- El uso diario va por `--since` (`minUpdateDate`), que trae solo lo modificado.
+
+### Bug del centinela -1 (importante)
+`latestApprovedVersionNumber` vale **-1** cuando el documento no tiene ninguna version aprobada; no es un numero de version. Leerlo como numero daba 376 documentos "aprobados pero desactualizados". Al corregirlo (`<= 0` o `lastApprovedVersion` vacio => nunca aprobado) el cuadro real es:
+
+| estado | documentos |
+|---|---|
+| version vigente aprobada | 2.561 (87%) |
+| aprobada pero con borradores mas nuevos | 25 (0,9%) |
+| **sin ninguna version aprobada** | **351 (12%)** |
+
+O sea: no es que haya mucho arte con aprobacion vieja, es que hay 351 documentos que nunca se aprobaron. Corroborado contra el documento #1018: `latestApprovedVersionNumber: -1`, `lastApprovedVersion: null`, sin fecha de aprobacion.
+
+### Validacion contra la fuente Excel
+`npm run sync:moondesk-api -- --compare` compara las dos fuentes sobre los 101 componentes:
+- **0 contradicciones** donde ambas fuentes opinan (9 componentes).
+- 11 componentes los conoce solo la API; 2 solo el Excel — y esos 2 **no tienen codigo de material**, asi que la API no puede ubicarlos (busca por Cod. Insumo). No es un desacuerdo.
+- 80 de 101 componentes todavia no tienen codigo de material; de los 21 que si, la API conoce 20.
+
+### Definiciones del sector (2026-09-27)
+1. **Arte aprobado con borradores mas nuevos** => cumplido pero **marcado a revisar** (`at_risk`), el mismo mecanismo que los codigos discontinuados. No pierde ninguna de las dos lecturas.
+2. **Varios documentos para un mismo Cod. Insumo** (tipicamente uno de Venta y otro Digital) => **todos** tienen que estar aprobados para dar el requisito por cumplido.
+
+Plano, Especificacion y FT **no cuentan como arte**: son documentos tecnicos que el checklist evalua por separado, contra DOCUMENTOS APROBADOS, que es donde la gente los busca. Las dos preguntas son distintas ("esta aprobado en Moondesk" vs "esta publicado donde se consulta") y se mantienen las dos.
+
+### Codigos MOON mal tipeados (11 distintos)
+Rompen el cruce contra DOCUMENTOS APROBADOS, porque el nombre de archivo se genera con ese codigo. El peor es **`MOON001059`** (seis digitos en vez de cinco), copiado en **13 documentos** de productos distintos: Rociamin, Vorst, Papasine, Bacfuron, Sinalgico, Lipocambi, Lixatrom (x2), Lipocambi Plus, Emgliber Met, **Pylober**, Ovufem, Sigliber Met. Otros: `MOON000512`, `MOON001159`, `MOON0081`, `MOON0113`, `MOON1043`, `MOON1058`, `MOON1702`, `MOON481`, `MOON482`, `MOONO1324` (con la letra O en vez de cero).
+
+Aparte hay 237 codigos del **sistema viejo** (`PL366`, `EM285`, `120-001-A`) que son validos y no hay que tocar. `classifyMoonCode` distingue los tres casos.
+
+### Otros datos del corte
+- **1.150 documentos (39%) no tienen Cod. Insumo**, asi que no se pueden vincular a un componente.
+- Destinos: Venta, Digital, Muestra, OTC, y muchos sin destino.
+
+### Archivos
+- `src/server/etl/moondesk-api.ts`: cliente tipado, extraccion de clasificadores, `deriveApprovalState`, `classifyMoonCode`.
+- `src/server/services/moondesk-api-service.ts`: sincronizacion, consulta por codigo de material, frescura.
+- `src/server/validation/run-moondesk-api-sync.ts`: CLI (`--check`, `--compare`, `--since=`).
+- Modelos `MoondeskApiDocument` y `MoondeskApiSync`, separados de `moondesk_tasks` a proposito: las dos fuentes conviven y se comparan.
+- `MoondeskFreshness` en el inicio: sin la fecha de sincronizacion, "el arte no esta aprobado" se lee igual que "lo aprobaron ayer y no sincronizamos".
+
 ## Proximo paso
 A la espera de: (1) respuesta de Sistemas sobre conexion SAP, (2) API real de Moondesk. Mientras tanto (sin depender de terceros): edicion basica de estados de items desde la UI.
 
@@ -424,6 +486,6 @@ Resultado sobre 40 carpetas / 65 archivos: **44 proyectos y 101 componentes** im
 
 ## Restricciones vigentes
 - SAP: a la espera de Sistemas (ver docs/sap-integration-requirements.md). No conectar hasta tener respuesta.
-- Moondesk: integrado via reportes Excel (Tasks + Tasks_Times + Users_Tasks_Times). La API real reemplazara la fuente cuando este lista, manteniendo el servicio de aplicacion.
+- Moondesk: **integrado por API desde 2026-09-27** (ver seccion). Los reportes Excel siguen disponibles como respaldo y como fuente de tiempos (dias de diseno/revision), que la API no expone.
 - No crear slots canonicos nuevos sin decision explicita.
 - No expandir BOM a ciegas sin caso real y criterio de validacion.

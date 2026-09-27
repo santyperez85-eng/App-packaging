@@ -25,7 +25,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "sync:moondesk-api": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx ./src/server/validation/run-moondesk-api-sync.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { pendingSummary } from "@/lib/labels";
+
 import { CLOSURE_REQUIREMENT_ORDER, CLOSURE_REQUIREMENT_SHORT_LABELS } from "@/server/rules/closure-checklist";
 import type { ComponentRequirement, PortfolioComponent } from "@/server/services/portfolio-service";
 
@@ -52,11 +54,11 @@ export function ClosureMatrix({ components }: { components: PortfolioComponent[]
                     {component.name}
                   </Link>
                   <div className="table-subtitle">
-                    {component.closed
-                      ? "Cumple todos los requisitos"
-                      : component.applicable - component.met === 1
-                        ? `Le falta 1 de ${component.applicable}`
-                        : `Le faltan ${component.applicable - component.met} de ${component.applicable}`}
+                    {pendingSummary({
+                      missing: component.missing.length,
+                      atRisk: component.atRisk.length,
+                      applicable: component.applicable
+                    })}
                   </div>
                 </td>
                 <td>{component.materialCode ?? <span className="muted-text">Sin código</span>}</td>
