@@ -1257,3 +1257,32 @@ ul {
 .cell--missing {
   opacity: 0.55;
 }
+
+/* Rastro de navegacion: entrar a una ficha ya no es un callejon sin salida. */
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.breadcrumb__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.breadcrumb__link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.breadcrumb__link:hover {
+  text-decoration: underline;
+}
+
+.breadcrumb__separator {
+  opacity: 0.5;
+}

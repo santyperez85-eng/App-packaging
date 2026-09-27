@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { ComponentChecklist } from "@/components/portfolio/component-checklist";
 import { ProjectItemLifecycleView } from "@/components/project-items/project-item-lifecycle-view";
 import { SectionCard } from "@/components/ui/section-card";
@@ -29,13 +29,16 @@ export default async function ComponentDetailPage({
 
   return (
     <div className="stack-lg">
+      <Breadcrumb
+        items={[
+          { label: "Productos", href: "/" },
+          { label: product.displayName, href: `/productos/${product.id}` },
+          { label: component.name }
+        ]}
+      />
+
       <section className="page-intro">
-        <span className="eyebrow">
-          <Link className="text-link" href={`/productos/${product.id}`}>
-            {product.displayName}
-          </Link>
-          {product.presentation ? ` · ${product.presentation}` : ""}
-        </span>
+        <span className="eyebrow">{product.presentation ?? ""}</span>
         <h1>{component.name}</h1>
         <p className="page-intro__summary">
           {component.closed

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AlertsTable } from "@/components/alerts/alerts-table";
+import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { ClosureMatrix, PendingByRequirement } from "@/components/portfolio/closure-matrix";
 import { LaunchDateField } from "@/components/portfolio/launch-date-field";
 import { SectionCard } from "@/components/ui/section-card";
@@ -27,6 +28,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="stack-lg">
+      <Breadcrumb items={[{ label: "Productos", href: "/" }, { label: product.displayName }]} />
+
       <section className="page-intro">
         <h1>{product.displayName}</h1>
         <p>

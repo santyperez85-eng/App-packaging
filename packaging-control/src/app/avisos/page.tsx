@@ -1,3 +1,4 @@
+import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { AlertsTable } from "@/components/alerts/alerts-table";
 import { SectionCard } from "@/components/ui/section-card";
 import { plural } from "@/lib/labels";
@@ -10,6 +11,8 @@ export default async function AlertsPage() {
 
   return (
     <div className="stack-lg">
+      <Breadcrumb items={[{ label: "Productos", href: "/" }, { label: "Avisos" }]} />
+
       <section className="page-intro">
         <h1>Avisos</h1>
         <p className="page-intro__summary">

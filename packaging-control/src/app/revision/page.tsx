@@ -1,3 +1,4 @@
+import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { ReviewQueue } from "@/components/review/review-queue";
 import { reviewService } from "@/server/services/review-service";
 
@@ -8,6 +9,8 @@ export default async function ReviewPage() {
 
   return (
     <div className="stack-lg">
+      <Breadcrumb items={[{ label: "Productos", href: "/" }, { label: "Decisiones" }]} />
+
       <section className="page-intro">
         <h1>Decisiones</h1>
         <p className="page-intro__summary">

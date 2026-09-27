@@ -1,3 +1,4 @@
+import { Breadcrumb } from "@/components/layout/breadcrumb";
 import Link from "next/link";
 
 import { SectionCard } from "@/components/ui/section-card";
@@ -28,6 +29,8 @@ export default async function ComponentsPage() {
 
   return (
     <div className="stack-lg">
+      <Breadcrumb items={[{ label: "Productos", href: "/" }, { label: "Componentes" }]} />
+
       <section className="page-intro">
         <h1>Componentes</h1>
         <p className="page-intro__summary">
