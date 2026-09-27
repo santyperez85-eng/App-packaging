@@ -80,8 +80,16 @@ const COMPONENT_DEFINITIONS: ComponentDefinition[] = [
     labelCandidates: ["frasco_desc", "descripcion_frasco", "bottle_description"]
   },
   {
+    /**
+     * "Blister: SI" en el PM **declara el formato**, no un componente: dice que
+     * el producto no va en frasco ni en pomo. Los componentes reales de un
+     * blister son siempre dos, el aluminio foil de tapa y la lamina que lo
+     * forma, que puede ser PVC (de cualquier tipo) o aluminio moldeable en
+     * frio. Este slot representa esa lamina; el aluminio foil se agrega aparte
+     * en `withBlisterComponents`.
+     */
     slot: ComponentSlot.BLISTER,
-    defaultLabel: "Blister",
+    defaultLabel: "Lámina del blíster",
     flagCandidates: ["blister", "aplica_blister", "requiere_blister"],
     labelCandidates: ["blister_desc", "descripcion_blister"]
   },
@@ -131,6 +139,7 @@ const COMPONENT_DEFINITIONS: ComponentDefinition[] = [
 
 const RULE_PRIORITY: Record<string, number> = {
   pm_matrix_yes_toggle: 80,
+  pm_blister_implies_aluminium: 78,
   pm_matrix_explicit_description: 75,
   pm_matrix_structured_quantity: 70,
   pm_matrix_material_description: 65,
@@ -498,6 +507,20 @@ function detectStructuredBlisterQuantity(rawData: Record<string, unknown>, rowIn
       continue;
     }
 
+    /**
+     * Las columnas "Unid. X Blister" / "Cant. Blister" viven en la grilla
+     * comercial del PM, junto a volumenes y precios: `Cant. Blister: 28.766`
+     * es un volumen anual, no una declaracion de formato. Leerlo como si lo
+     * fuera daba blisters en un jarabe de 250 ml y en gotas pediatricas.
+     *
+     * El unico dato confiable de formato es la fila SI/NO marcada con X
+     * (`pm_matrix_yes_toggle`). Esta senal se conserva solo como refuerzo:
+     * confirma un blister ya declarado, pero no lo declara por si sola.
+     */
+    if (!hasExplicitBlisterToggle(rows)) {
+      return null;
+    }
+
     return buildMatrixExpectation({
       rawData,
       slot: ComponentSlot.BLISTER,
@@ -514,6 +537,23 @@ function detectStructuredBlisterQuantity(rawData: Record<string, unknown>, rowIn
   }
 
   return null;
+}
+
+/** Hay una fila SI/NO de blister con el SI marcado. */
+function hasExplicitBlisterToggle(rows: unknown[][]) {
+  for (let index = 0; index < rows.length; index += 1) {
+    const text = rowText(rows[index] ?? []);
+
+    if (!hasTerm(text, "blister")) {
+      continue;
+    }
+
+    if (findToggleDecision(rows, index)?.applies === true) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function detectMatrixSlotInRow(rawData: Record<string, unknown>, slot: ComponentSlot, rowIndex: number) {
@@ -698,6 +738,40 @@ function upsertExpectation(
   });
 }
 
+/**
+ * El PM declara el blister pero casi nunca completa la fila "Tipo de Material"
+ * (de los PM donde esa fila se puede leer, una sola la tiene marcada). Asi que
+ * el material de la lamina **no se da por hecho**: se deja visible como algo a
+ * resolver, y lo define el alta o la receta. Muchas veces ni siquiera hay un
+ * alta nueva, porque se asigna un PVC que ya existe.
+ *
+ * Lo que si es seguro es que son dos componentes, porque el aluminio foil esta
+ * en las dos variantes (PVC/Alu y Alu/Alu).
+ */
+function withBlisterComponents(components: Map<ComponentSlot, PmExpectedComponent>) {
+  const blister = components.get(ComponentSlot.BLISTER);
+
+  if (!blister || blister.applicabilityStatus !== ApplicabilityStatus.APPLIES) {
+    return components;
+  }
+
+  if (!components.has(ComponentSlot.ALUMINIO)) {
+    components.set(ComponentSlot.ALUMINIO, {
+      sourceRecordKey: buildSourceRecordKey(ComponentSlot.ALUMINIO),
+      componentSlot: ComponentSlot.ALUMINIO,
+      label: "Aluminio foil",
+      applicabilityStatus: ApplicabilityStatus.APPLIES,
+      definitionRule: "pm_blister_implies_aluminium",
+      traceability: blister.traceability
+        ? { ...blister.traceability, componentSlot: ComponentSlot.ALUMINIO, rule: "pm_blister_implies_aluminium",
+            reason: "El PM declara blister, y el aluminio foil esta en las dos variantes (PVC/Alu y Alu/Alu)." }
+        : undefined
+    });
+  }
+
+  return components;
+}
+
 export function extractPmExpectedComponents(
   rawData: Record<string, unknown>,
   context: PmExpectationContext
@@ -763,6 +837,8 @@ export function extractPmExpectedComponents(
   for (const matrixComponent of extractMatrixExpectedComponents(rawData)) {
     upsertExpectation(components, matrixComponent);
   }
+
+  withBlisterComponents(components);
 
   return Array.from(components.values())
     .filter((component) => component.applicabilityStatus === ApplicabilityStatus.APPLIES)

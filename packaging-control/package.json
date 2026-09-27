@@ -28,7 +28,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "sync:moondesk-api": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx ./src/server/validation/run-moondesk-api-sync.ts",
     "repair:altas": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx ./src/server/validation/run-repair-alta-contamination.ts",
-    "split:presentaciones": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx ./src/server/validation/run-split-presentations.ts"
+    "split:presentaciones": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx ./src/server/validation/run-split-presentations.ts",
+    "repair:blister": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx ./src/server/validation/run-repair-blister.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
