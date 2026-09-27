@@ -143,7 +143,8 @@ function toComponent(
 
 function loadItems(projectId?: string) {
   return prisma.projectItem.findMany({
-    where: projectId ? { projectId } : undefined,
+    // Lo archivado no cuenta en ningun numero de la cartera.
+    where: { archivedAt: null, project: { archivedAt: null }, ...(projectId ? { projectId } : {}) },
     include: { ...CLOSURE_CHECKLIST_INCLUDE, project: { include: { product: true } } },
     orderBy: [{ itemKey: "asc" }]
   });
@@ -189,7 +190,7 @@ export const portfolioService = {
     // mostrarlo seria esconder justamente el caso mas crudo: un PM del que
     // todavia no se derivo nada.
     const projects = await prisma.project.findMany({
-      where: options?.projectId ? { id: options.projectId } : undefined,
+      where: { archivedAt: null, ...(options?.projectId ? { id: options.projectId } : {}) },
       include: { product: true }
     });
 

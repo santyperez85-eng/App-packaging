@@ -32,7 +32,8 @@ export const reviewService = {
       prisma.projectItemEvidence.findMany({
         where: {
           matchStatus: { in: REVIEW_MATCH_STATUSES },
-          manualMatchStatus: null
+          manualMatchStatus: null,
+          projectItem: { archivedAt: null, project: { archivedAt: null } }
         },
         include: {
           projectItem: {
@@ -49,6 +50,8 @@ export const reviewService = {
       }),
       prisma.projectItem.findMany({
         where: {
+          archivedAt: null,
+          project: { archivedAt: null },
           materialRequestLockedAt: null,
           evidences: {
             some: { sourceType: "material_request" }

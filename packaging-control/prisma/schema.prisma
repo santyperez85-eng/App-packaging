@@ -285,6 +285,12 @@ model Project {
   bomItems         BomItem[]
   materialRequests MaterialRequest[]
   alerts           Alert[]
+  /**
+   * Archivado: el producto no se lanza o se discontinuo. Ver ProjectItem.
+   */
+  archivedAt       DateTime?
+  archivedReason   String?
+  archivedBy       String?
 
   @@index([productId])
   @@index([sapFinishedCode])
@@ -333,6 +339,16 @@ model ProjectItem {
   alerts                   Alert[]
   approvals                Approval[]
   issues                   Issue[]
+  /**
+   * Archivado: el componente existe pero no cuenta.
+   * Se archiva -no se borra- por dos motivos: queda el registro de quien lo
+   * saco y por que, y la proxima importacion no lo resucita, porque la fuente
+   * lo sigue declarando. Un componente archivado no suma a ningun numero, no
+   * genera avisos y no aparece en Decisiones.
+   */
+  archivedAt               DateTime?
+  archivedReason           String?
+  archivedBy               String?
 
   @@unique([projectId, itemKey])
   @@index([projectId, status])

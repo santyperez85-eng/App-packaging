@@ -1286,3 +1286,48 @@ ul {
 .breadcrumb__separator {
   opacity: 0.5;
 }
+
+/* Archivar: el motivo es obligatorio, asi que el formulario va a la vista. */
+.archive-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-strong);
+}
+
+.archive-box__title {
+  font-weight: 600;
+}
+
+.archive-box__hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.archive-box__custom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.chip--action {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font: inherit;
+  cursor: pointer;
+}
+
+.chip--action:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.chip--action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

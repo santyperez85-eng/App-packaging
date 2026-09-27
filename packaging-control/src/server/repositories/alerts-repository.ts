@@ -5,7 +5,15 @@ import { prisma } from "@/lib/prisma";
 export const alertsRepository = {
   list(where: Prisma.AlertWhereInput = {}) {
     return prisma.alert.findMany({
-      where,
+      // Un aviso sobre algo archivado no es un pendiente: alguien ya decidio
+      // que eso no va. Se filtra aca para que valga en todas las pantallas.
+      where: {
+        ...where,
+        AND: [
+          { OR: [{ projectItemId: null }, { projectItem: { archivedAt: null } }] },
+          { OR: [{ projectId: null }, { project: { archivedAt: null } }] }
+        ]
+      },
       include: {
         project: true,
         projectItem: {

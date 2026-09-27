@@ -5,7 +5,8 @@ const navigation = [
   { href: "/", label: "Productos" },
   { href: "/componentes", label: "Componentes" },
   { href: "/revision", label: "Decisiones" },
-  { href: "/avisos", label: "Avisos" }
+  { href: "/avisos", label: "Avisos" },
+  { href: "/archivados", label: "Archivados" }
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {

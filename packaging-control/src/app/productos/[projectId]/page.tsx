@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { AlertsTable } from "@/components/alerts/alerts-table";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
+import { ArchiveButton } from "@/components/portfolio/archive-button";
 import { ClosureMatrix, PendingByRequirement } from "@/components/portfolio/closure-matrix";
 import { LaunchDateField } from "@/components/portfolio/launch-date-field";
 import { SectionCard } from "@/components/ui/section-card";
@@ -40,6 +41,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         <div className="pill-row">
           <StatusBadge label={labels.projectStatus(product.status)} />
           <LaunchDateField projectId={product.id} value={product.launchDate} />
+          <ArchiveButton target="product" id={product.id} label="este producto" />
         </div>
 
         <p className="page-intro__summary">

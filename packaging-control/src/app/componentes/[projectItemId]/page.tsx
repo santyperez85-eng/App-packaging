@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { Breadcrumb } from "@/components/layout/breadcrumb";
+import { ArchiveButton } from "@/components/portfolio/archive-button";
 import { ComponentChecklist } from "@/components/portfolio/component-checklist";
 import { ProjectItemLifecycleView } from "@/components/project-items/project-item-lifecycle-view";
 import { SectionCard } from "@/components/ui/section-card";
@@ -57,6 +58,7 @@ export default async function ComponentDetailPage({
         <div className="pill-row">
           <span className="metric-pill">{labels.componentSlot(component.slot)}</span>
           <span className="metric-pill">{component.materialCode ?? "Sin código de material"}</span>
+          <ArchiveButton target="component" id={component.id} label="este componente" />
         </div>
       </section>
 
