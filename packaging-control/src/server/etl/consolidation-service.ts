@@ -728,10 +728,19 @@ export const consolidationService = {
           provisionalCode: resolution.provisionalCode ?? null,
           itemType: inferItemType(expectedComponent.label),
           criticality: ItemCriticality.HIGH,
-          requiresApprovedDocument: derivePrintRequirement({
-            componentSlot: expectedComponent.componentSlot,
-            description: expectedComponent.label
-          }).requiresArt,
+          /**
+           * `undefined` = no tocar. La etiqueta del PM es generica ("Frasco"),
+           * asi que cuando no alcanza para decidir no debe pisar lo que ya se
+           * dedujo del alta o del codigo, que son mejores fuentes. Sin esto, la
+           * re-consolidacion volvia a marcar "lleva arte" un frasco que el alta
+           * ya habia mostrado que se pide sin etiqueta.
+           */
+          requiresApprovedDocument: ((print) => (print.confident ? print.requiresArt : undefined))(
+            derivePrintRequirement({
+              componentSlot: expectedComponent.componentSlot,
+              description: expectedComponent.label
+            })
+          ),
           requiresMaterialCode: true,
           requiresTechnicalDocs: true
         });
