@@ -242,6 +242,64 @@ function hasAnyToken(row: AltaMatRawRow, tokens: string[]) {
   return tokens.some((token) => hasProjectToken(row, token));
 }
 
+/**
+ * Prefijos con los que la planilla nombra el tipo de componente. Lo que viene
+ * inmediatamente despues es el producto: `EST.DEXOGASTEC 30MG` -> dexogastec.
+ */
+const COMPONENT_PREFIXES = [
+  "est",
+  "estuche",
+  "prosp",
+  "prospecto",
+  "alum",
+  "aluminio",
+  "etiq",
+  "etiqueta",
+  "fco",
+  "frasco",
+  "pomo",
+  "folia",
+  "carton",
+  "neceser",
+  "sobre",
+  "tapa",
+  "bomba",
+  "precinto",
+  "doypack",
+  "alveolo"
+];
+
+/**
+ * Producto que nombra la descripcion de un alta, o `null` si no nombra ninguno.
+ *
+ * Sirve para no arrastrar a un proyecto filas que hablan de otro producto. La
+ * planilla escribe `<TIPO>.<PRODUCTO> <medidas>`, asi que alcanza con sacar el
+ * prefijo de tipo y quedarse con la primera palabra identificatoria.
+ */
+export function descriptionProductKey(description: string | null | undefined) {
+  const normalized = normalizeForMatch(description ?? "");
+
+  if (!normalized) {
+    return null;
+  }
+
+  const words = normalized.split(" ").filter(Boolean);
+  const start = words.length && COMPONENT_PREFIXES.includes(words[0]) ? 1 : 0;
+
+  for (let index = start; index < words.length; index += 1) {
+    const word = words[index];
+
+    // Se saltean medidas, dosis y cantidades: no identifican al producto.
+    if (/^\d/.test(word) || word.length < 3) {
+      continue;
+    }
+
+    return word;
+  }
+
+  return null;
+}
+
 function detectContextRows(
   rows: AltaMatRawRow[],
   params: { projectToken: string; excludeProjectTokens?: string[]; maxContextCarryRows: number }
@@ -269,6 +327,9 @@ function detectContextRows(
     }
 
     let carriedRows = 0;
+    // Producto que nombra la fila ancla: las filas de continuacion solo se
+    // arrastran si hablan del mismo producto (o no nombran ninguno).
+    const anchorProduct = descriptionProductKey(row.descriptionToCreate);
 
     for (let nextIndex = index + 1; nextIndex < rows.length; nextIndex += 1) {
       const nextRow = rows[nextIndex];
@@ -279,6 +340,20 @@ function detectContextRows(
 
       if (hasAnyToken(nextRow, excludeTokens)) {
         excludedRows.add(nextRow.excelRow);
+        break;
+      }
+
+      /**
+       * La firma de contexto (motivo + solicitante + fecha) identifica una
+       * **tanda** de pedidos, no un producto: en la planilla real una misma
+       * persona pide el mismo dia, por el mismo motivo, estuches de productos
+       * completamente distintos. Arrastrar por firma metia `EST.ALIPAS DUO` y
+       * `EST.MIOPROPAN` dentro de Dexogastec, y de ahi salia el 48% de las
+       * altas mal vinculadas. Si la fila nombra otro producto, no se arrastra.
+       */
+      const nextProduct = descriptionProductKey(nextRow.descriptionToCreate);
+
+      if (nextProduct && anchorProduct && nextProduct !== anchorProduct) {
         break;
       }
 

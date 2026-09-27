@@ -26,7 +26,8 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "sync:moondesk-api": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx ./src/server/validation/run-moondesk-api-sync.ts"
+    "sync:moondesk-api": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx ./src/server/validation/run-moondesk-api-sync.ts",
+    "repair:altas": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx ./src/server/validation/run-repair-alta-contamination.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
