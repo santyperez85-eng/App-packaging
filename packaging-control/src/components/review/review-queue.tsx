@@ -183,8 +183,8 @@ export function ReviewQueue({ queue }: { queue: ReviewQueueData }) {
 
       {queue.pendingBomConfirmations.length ? (
         <SectionCard
-          title={`Confirmaciones de estructura pre-SAP (${queue.pendingBomConfirmations.length})`}
-          description="Hay evidencia BOM pero el bloque conserva confirmaciones operativas pendientes."
+          title={`Estructuras que esperan tu confirmación (${queue.pendingBomConfirmations.length})`}
+          description="El componente figura en la receta, pero el bloque tiene datos sin confirmar."
         >
           <div className="list-stack">
             {queue.pendingBomConfirmations.map((entry) => {

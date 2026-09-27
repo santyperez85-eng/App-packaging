@@ -5,6 +5,7 @@ import { projectItemsService } from "@/server/services/project-items-service";
 import { alertsService } from "@/server/services/alerts-service";
 import { projectItemEvidencesRepository } from "@/server/repositories/project-item-evidences-repository";
 import { projectItemsRepository } from "@/server/repositories/project-items-repository";
+import { classifyCodeGroup, groupCodesByRoot } from "@/server/etl/material-code";
 
 const REVIEW_MATCH_STATUSES: MatchingStatus[] = [MatchingStatus.AMBIGUOUS, MatchingStatus.MANUAL_REVIEW];
 
@@ -84,6 +85,34 @@ export const reviewService = {
 
     for (const item of candidateItems) {
       if (item.evidences.length < 2) {
+        continue;
+      }
+
+      /**
+       * Tener dos altas sobre un componente no es, por si solo, una decision.
+       * Hay tres situaciones muy distintas detras del mismo sintoma:
+       *
+       *  - **versiones** de un mismo codigo (`SD90/70`, `/71`, `/72`): la mas
+       *    nueva reemplaza a las anteriores por procedimiento. No se pregunta.
+       *  - **presentaciones** distintas (`SC22/70` 15mg x30 vs `SC23/70` 20mg
+       *    x30): son componentes distintos, cada uno con su estuche. Tampoco
+       *    se pregunta: se separan con `split:presentaciones`.
+       *  - dos codigos de la **misma raiz y misma version**: eso si es una
+       *    contradiccion real y merece que alguien la mire.
+       *
+       * Preguntar por los dos primeros era lo que hacia la cola inutil: la
+       * pregunta no tenia respuesta correcta posible.
+       */
+      const groups = groupCodesByRoot(
+        item.evidences
+          .map((evidence) => ({
+            code: evidenceRequestCode(evidence.sourceRecordKey) ?? "",
+            description: evidence.rawLabel
+          }))
+          .filter((entry) => entry.code)
+      );
+
+      if (classifyCodeGroup(groups) !== "single") {
         continue;
       }
 
